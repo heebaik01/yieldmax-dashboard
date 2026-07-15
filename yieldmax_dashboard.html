@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YieldMax 배당금 대시보드</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .header h1 { font-size: 2rem; color: #fff; margin-bottom: 0.5rem; }
+        .header .subtitle { color: #888; font-size: 0.9rem; }
+        .header .update-time { color: #64b5f6; margin-top: 0.5rem; }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .summary-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.2s;
+        }
+        .summary-card:hover { transform: translateY(-2px); }
+        .summary-card .label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .summary-card .value { font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem; }
+        .summary-card.total .value { color: #4caf50; }
+        .summary-card.cony .value { color: #ff9800; }
+        .summary-card.msty .value { color: #2196f3; }
+        .summary-card.ybit .value { color: #9c27b0; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-cony { background: rgba(255,152,0,0.2); color: #ff9800; }
+        .badge-msty { background: rgba(33,150,243,0.2); color: #2196f3; }
+        .badge-ybit { background: rgba(156,39,176,0.2); color: #9c27b0; }
+
+        /* Cards */
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .card-header h3 { color: #fff; font-size: 1.2rem; }
+        .card-total { font-size: 1.4rem; font-weight: 700; color: #4caf50; }
+        .card-total small { font-size: 0.7rem; color: #888; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 0.6rem 0.8rem; color: #888; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+        td { padding: 0.6rem 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+        .amount { font-weight: 600; color: #4caf50; }
+
+        /* History Section */
+        .history-section { margin-top: 2rem; }
+        .history-section h2 { color: #fff; margin-bottom: 1rem; font-size: 1.3rem; }
+
+        /* Portfolio Section */
+        .portfolio-section { margin-bottom: 2.5rem; }
+        .portfolio-section h2 { color: #fff; margin-bottom: 1rem; font-size: 1.3rem; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 1rem;
+            color: #555;
+            font-size: 0.8rem;
+        }
+        .footer a { color: #64b5f6; text-decoration: none; }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .card-header { flex-direction: column; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>YieldMax 배당금 대시보드</h1>
+            <div class="subtitle">CONY &middot; MSTY &middot; YBIT 주간 배당 리포트</div>
+            <div class="update-time">마지막 업데이트: 2026-07-15 22:37</div>
+        </div>
+
+        <!-- 포트폴리오 현황 -->
+        
+    <div class="portfolio-section">
+        <h2>투자 포트폴리오 현황</h2>
+        <div class="summary-grid" style="margin-bottom:1.5rem">
+            <div class="summary-card">
+                <div class="label">총 투자금액</div>
+                <div class="value" style="color:#fff;font-size:1.4rem">$102,773</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">현재 평가금액</div>
+                <div class="value" style="color:#64b5f6;font-size:1.4rem">$14,134</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">누적 배당금</div>
+                <div class="value" style="color:#4caf50;font-size:1.4rem">$61,837</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">회수율 / 수익률</div>
+                <div class="value" style="font-size:1.2rem">
+                    <span style="color:#64b5f6">60%</span>
+                    <span style="color:#666"> / </span>
+                    <span style="color:#ef5350">-26.1%</span>
+                </div>
+            </div>
+        </div>
+        <div class="summary-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom:1.5rem">
+            <div class="summary-card">
+                <div class="label">평가금액 (원화)</div>
+                <div class="value" style="color:#64b5f6;font-size:1.2rem">₩21,286,331</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">누적배당 (원화)</div>
+                <div class="value" style="color:#4caf50;font-size:1.2rem">₩93,126,537</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3>아빠 <small style="color:#888;font-size:0.8rem">투자: ₩90,929,999</small></h3>
+                <div>
+                    <span style="color:#ef5350;font-size:1.2rem;font-weight:700">-25.4%</span>
+                    <small style="color:#888;margin-left:0.5rem">회수율 60%</small>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ETF</th><th>수량</th><th>매수평단</th><th>매수금액</th>
+                        <th>현재가</th><th>평가금액</th><th>누적배당</th><th>회수율</th><th>수익률</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>181</td>
+                    <td>$96.45</td>
+                    <td>$17,456.74</td>
+                    <td>$19.63</td>
+                    <td>$3,553.03</td>
+                    <td class="amount">$11,224.44</td>
+                    <td style="color:#64b5f6">64%</td>
+                    <td style="color:#ef5350;font-weight:600">-15.3%</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>407</td>
+                    <td>$113.78</td>
+                    <td>$46,306.91</td>
+                    <td>$12.83</td>
+                    <td>$5,221.81</td>
+                    <td class="amount">$27,693.98</td>
+                    <td style="color:#64b5f6">60%</td>
+                    <td style="color:#ef5350;font-weight:600">-28.9%</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>40</td>
+                    <td>$66.70</td>
+                    <td>$2,668.07</td>
+                    <td>$18.94</td>
+                    <td>$757.60</td>
+                    <td class="amount">$1,108.03</td>
+                    <td style="color:#64b5f6">42%</td>
+                    <td style="color:#ef5350;font-weight:600">-30.1%</td>
+                </tr>
+                    <tr style="border-top:2px solid rgba(255,255,255,0.2);font-weight:600">
+                        <td colspan="3">합계</td>
+                        <td>$66,431.72</td>
+                        <td></td>
+                        <td>$9,532.44</td>
+                        <td class="amount">$40,026.45</td>
+                        <td style="color:#64b5f6">60%</td>
+                        <td style="color:#ef5350">-25.4%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h3>엄마 <small style="color:#888;font-size:0.8rem">투자: ₩30,000,000</small></h3>
+                <div>
+                    <span style="color:#ef5350;font-size:1.2rem;font-weight:700">-25.2%</span>
+                    <small style="color:#888;margin-left:0.5rem">회수율 63%</small>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ETF</th><th>수량</th><th>매수평단</th><th>매수금액</th>
+                        <th>현재가</th><th>평가금액</th><th>누적배당</th><th>회수율</th><th>수익률</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>70</td>
+                    <td>$134.27</td>
+                    <td>$9,398.97</td>
+                    <td>$19.63</td>
+                    <td>$1,374.10</td>
+                    <td class="amount">$6,827.75</td>
+                    <td style="color:#64b5f6">73%</td>
+                    <td style="color:#ef5350;font-weight:600">-12.7%</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>69</td>
+                    <td>$172.51</td>
+                    <td>$11,903.43</td>
+                    <td>$12.83</td>
+                    <td>$885.27</td>
+                    <td class="amount">$6,858.78</td>
+                    <td style="color:#64b5f6">58%</td>
+                    <td style="color:#ef5350;font-weight:600">-34.9%</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>27</td>
+                    <td>$70.92</td>
+                    <td>$1,914.83</td>
+                    <td>$18.94</td>
+                    <td>$511.38</td>
+                    <td class="amount">$917.58</td>
+                    <td style="color:#64b5f6">48%</td>
+                    <td style="color:#ef5350;font-weight:600">-25.4%</td>
+                </tr>
+                    <tr style="border-top:2px solid rgba(255,255,255,0.2);font-weight:600">
+                        <td colspan="3">합계</td>
+                        <td>$23,217.23</td>
+                        <td></td>
+                        <td>$2,770.75</td>
+                        <td class="amount">$14,604.11</td>
+                        <td style="color:#64b5f6">63%</td>
+                        <td style="color:#ef5350">-25.2%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h3>시윤 <small style="color:#888;font-size:0.8rem">투자: ₩10,000,000</small></h3>
+                <div>
+                    <span style="color:#ef5350;font-size:1.2rem;font-weight:700">-31.1%</span>
+                    <small style="color:#888;margin-left:0.5rem">회수율 55%</small>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ETF</th><th>수량</th><th>매수평단</th><th>매수금액</th>
+                        <th>현재가</th><th>평가금액</th><th>누적배당</th><th>회수율</th><th>수익률</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>40</td>
+                    <td>$125.28</td>
+                    <td>$5,011.34</td>
+                    <td>$19.63</td>
+                    <td>$785.20</td>
+                    <td class="amount">$2,768.26</td>
+                    <td style="color:#64b5f6">55%</td>
+                    <td style="color:#ef5350;font-weight:600">-29.1%</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>52</td>
+                    <td>$132.07</td>
+                    <td>$6,867.54</td>
+                    <td>$12.83</td>
+                    <td>$667.16</td>
+                    <td class="amount">$3,818.85</td>
+                    <td style="color:#64b5f6">56%</td>
+                    <td style="color:#ef5350;font-weight:600">-34.7%</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>20</td>
+                    <td>$62.25</td>
+                    <td>$1,245.00</td>
+                    <td>$18.94</td>
+                    <td>$378.80</td>
+                    <td class="amount">$619.34</td>
+                    <td style="color:#64b5f6">50%</td>
+                    <td style="color:#ef5350;font-weight:600">-19.8%</td>
+                </tr>
+                    <tr style="border-top:2px solid rgba(255,255,255,0.2);font-weight:600">
+                        <td colspan="3">합계</td>
+                        <td>$13,123.88</td>
+                        <td></td>
+                        <td>$1,831.16</td>
+                        <td class="amount">$7,206.45</td>
+                        <td style="color:#64b5f6">55%</td>
+                        <td style="color:#ef5350">-31.1%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="text-align:right;color:#555;font-size:0.75rem;margin-top:0.5rem">
+            환율: ₩1,506.0 | 현재가: CONY $19.63, MSTY $12.83, YBIT $18.94
+        </p>
+    </div>
+    <div class="card" style="margin-top:1.5rem;border:1px solid rgba(255,213,79,0.3)">
+        <div class="card-header">
+            <h3 style="color:#ffd54f">📅 투자금 회수 예상</h3>
+            <div><span style="color:#ffd54f;font-size:1.3rem;font-weight:700">2029년 11월</span> <span style="color:#888">(40개월 후, 주당 $237.39 기준)</span></div>
+        </div>
+        <table>
+            <thead>
+                <tr><th>ETF</th><th>투자금</th><th>누적배당</th><th>잔여</th><th>주간배당</th><th>회수예상</th><th></th><th>진행률</th></tr>
+            </thead>
+            <tbody>
+            <tr style="border-top:1px solid rgba(255,255,255,0.1)">
+                <td colspan="8" style="color:#fff;font-weight:600;padding-top:0.8rem">아빠</td>
+            </tr>
+            
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>$17,457</td>
+                    <td>$11,224</td>
+                    <td>$6,232</td>
+                    <td>$51.92/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2028년 11월</td>
+                    <td style="color:#ffd54f">(28개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:64.2986032901905px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">64%</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>$46,307</td>
+                    <td>$27,694</td>
+                    <td>$18,613</td>
+                    <td>$107.26/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2029년 11월</td>
+                    <td style="color:#ffd54f">(40개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:59.805286079334586px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">60%</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>$2,668</td>
+                    <td>$1,108</td>
+                    <td>$1,560</td>
+                    <td>$6.79/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2030년 12월</td>
+                    <td style="color:#ffd54f">(53개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:41.52927022154591px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">42%</span>
+                    </td>
+                </tr>
+            <tr style="border-top:1px solid rgba(255,255,255,0.1)">
+                <td colspan="8" style="color:#fff;font-weight:600;padding-top:0.8rem">엄마</td>
+            </tr>
+            
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>$9,399</td>
+                    <td>$6,828</td>
+                    <td>$2,571</td>
+                    <td>$20.08/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2028년 12월</td>
+                    <td style="color:#ffd54f">(30개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:72.64359818150287px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">73%</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>$11,903</td>
+                    <td>$6,859</td>
+                    <td>$5,045</td>
+                    <td>$18.18/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2031년 11월</td>
+                    <td style="color:#ffd54f">(64개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:57.62019854781353px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">58%</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>$1,915</td>
+                    <td>$918</td>
+                    <td>$997</td>
+                    <td>$4.59/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2030년 09월</td>
+                    <td style="color:#ffd54f">(50개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:47.919658664215625px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">48%</span>
+                    </td>
+                </tr>
+            <tr style="border-top:1px solid rgba(255,255,255,0.1)">
+                <td colspan="8" style="color:#fff;font-weight:600;padding-top:0.8rem">시윤</td>
+            </tr>
+            
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>$5,011</td>
+                    <td>$2,768</td>
+                    <td>$2,243</td>
+                    <td>$11.47/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2030년 04월</td>
+                    <td style="color:#ffd54f">(45개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:55.239915870805014px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">55%</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>$6,868</td>
+                    <td>$3,819</td>
+                    <td>$3,049</td>
+                    <td>$13.70/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2030년 10월</td>
+                    <td style="color:#ffd54f">(51개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:55.60724801020452px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">56%</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>$1,245</td>
+                    <td>$619</td>
+                    <td>$626</td>
+                    <td>$3.40/주</td>
+                    <td style="color:#ffd54f;font-weight:600">2030년 01월</td>
+                    <td style="color:#ffd54f">(43개월)</td>
+                    <td>
+                        <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:8px;width:100px;display:inline-block">
+                            <div style="background:#4caf50;border-radius:4px;height:8px;width:49.746184738955826px"></div>
+                        </div>
+                        <span style="font-size:0.7rem;margin-left:4px">50%</span>
+                    </td>
+                </tr></tbody>
+        </table>
+        <p style="color:#555;font-size:0.7rem;margin-top:0.5rem">
+            * 최근 14주간 평균 배당금 기준 추정. 배당금 변동에 따라 달라질 수 있음.
+        </p>
+    </div>
+
+        <!-- 이번 주 배당금 -->
+        <h2 style="color:#fff;margin-bottom:1rem;font-size:1.3rem">이번 주 배당금</h2>
+
+        <!-- 요약 카드 -->
+        <div class="summary-grid">
+            <div class="summary-card total">
+                <div class="label">이번 주 세후 합계</div>
+                <div class="value">$174.31</div>
+            </div>
+            <div class="summary-card cony">
+                <div class="label">CONY 주당배당</div>
+                <div class="value">$0.2794</div>
+            </div>
+            <div class="summary-card msty">
+                <div class="label">MSTY 주당배당</div>
+                <div class="value">$0.2061</div>
+            </div>
+            <div class="summary-card ybit">
+                <div class="label">YBIT 주당배당</div>
+                <div class="value">$0.1718</div>
+            </div>
+        </div>
+
+        <!-- 계좌별 상세 -->
+        
+        <div class="card">
+            <div class="card-header">
+                <h3>아빠</h3>
+                <div class="card-total">$120.13 <small>(세후)</small></div>
+            </div>
+            <table class="detail-table">
+                <thead>
+                    <tr><th>ETF</th><th>주당배당</th><th>수량</th><th>세전</th><th>세후</th><th>지급일</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>$0.2794</td>
+                    <td>181</td>
+                    <td>$50.57</td>
+                    <td class="amount">$42.99</td>
+                    <td>07/10/2026</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>$0.2061</td>
+                    <td>407</td>
+                    <td>$83.88</td>
+                    <td class="amount">$71.30</td>
+                    <td>07/10/2026</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>$0.1718</td>
+                    <td>40</td>
+                    <td>$6.87</td>
+                    <td class="amount">$5.84</td>
+                    <td>07/10/2026</td>
+                </tr></tbody>
+            </table>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h3>엄마</h3>
+                <div class="card-total">$32.65 <small>(세후)</small></div>
+            </div>
+            <table class="detail-table">
+                <thead>
+                    <tr><th>ETF</th><th>주당배당</th><th>수량</th><th>세전</th><th>세후</th><th>지급일</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>$0.2794</td>
+                    <td>70</td>
+                    <td>$19.56</td>
+                    <td class="amount">$16.62</td>
+                    <td>07/10/2026</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>$0.2061</td>
+                    <td>69</td>
+                    <td>$14.22</td>
+                    <td class="amount">$12.09</td>
+                    <td>07/10/2026</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>$0.1718</td>
+                    <td>27</td>
+                    <td>$4.64</td>
+                    <td class="amount">$3.94</td>
+                    <td>07/10/2026</td>
+                </tr></tbody>
+            </table>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h3>시윤</h3>
+                <div class="card-total">$21.53 <small>(세후)</small></div>
+            </div>
+            <table class="detail-table">
+                <thead>
+                    <tr><th>ETF</th><th>주당배당</th><th>수량</th><th>세전</th><th>세후</th><th>지급일</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="badge badge-cony">CONY</span></td>
+                    <td>$0.2794</td>
+                    <td>40</td>
+                    <td>$11.18</td>
+                    <td class="amount">$9.50</td>
+                    <td>07/10/2026</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-msty">MSTY</span></td>
+                    <td>$0.2061</td>
+                    <td>52</td>
+                    <td>$10.72</td>
+                    <td class="amount">$9.11</td>
+                    <td>07/10/2026</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-ybit">YBIT</span></td>
+                    <td>$0.1718</td>
+                    <td>20</td>
+                    <td>$3.44</td>
+                    <td class="amount">$2.92</td>
+                    <td>07/10/2026</td>
+                </tr></tbody>
+            </table>
+        </div>
+
+        <!-- 최근 배당 히스토리 -->
+        <div class="history-section">
+            <h2>최근 배당 히스토리</h2>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr><th>ETF</th><th>주당배당</th><th>선언일</th><th>지급일</th><th>ROC</th></tr>
+                    </thead>
+                    <tbody>
+            <tr>
+                <td><span class="badge badge-cony">CONY</span></td>
+                <td class="amount">$0.2794</td>
+                <td>07/08/2026</td>
+                <td>07/10/2026</td>
+                <td>95.87%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-msty">MSTY</span></td>
+                <td class="amount">$0.2061</td>
+                <td>07/08/2026</td>
+                <td>07/10/2026</td>
+                <td>95.06%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-ybit">YBIT</span></td>
+                <td class="amount">$0.1718</td>
+                <td>07/08/2026</td>
+                <td>07/10/2026</td>
+                <td>0.00%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-cony">CONY</span></td>
+                <td class="amount">$0.2389</td>
+                <td>07/01/2026</td>
+                <td>07/06/2026</td>
+                <td>0.00%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-msty">MSTY</span></td>
+                <td class="amount">$0.1549</td>
+                <td>07/01/2026</td>
+                <td>07/06/2026</td>
+                <td>0.00%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-ybit">YBIT</span></td>
+                <td class="amount">$0.1488</td>
+                <td>07/01/2026</td>
+                <td>07/06/2026</td>
+                <td>0.00%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-cony">CONY</span></td>
+                <td class="amount">$0.2598</td>
+                <td>06/24/2026</td>
+                <td>06/26/2026</td>
+                <td>95.43%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-msty">MSTY</span></td>
+                <td class="amount">$0.1883</td>
+                <td>06/24/2026</td>
+                <td>06/26/2026</td>
+                <td>28.96%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-ybit">YBIT</span></td>
+                <td class="amount">$0.1443</td>
+                <td>06/24/2026</td>
+                <td>06/26/2026</td>
+                <td>91.27%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-cony">CONY</span></td>
+                <td class="amount">$0.2858</td>
+                <td>06/17/2026</td>
+                <td>06/22/2026</td>
+                <td>95.68%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-msty">MSTY</span></td>
+                <td class="amount">$0.2286</td>
+                <td>06/17/2026</td>
+                <td>06/22/2026</td>
+                <td>96.87%</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-ybit">YBIT</span></td>
+                <td class="amount">$0.1513</td>
+                <td>06/17/2026</td>
+                <td>06/22/2026</td>
+                <td>0.00%</td>
+            </tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 주가 & 배당 추이 차트 -->
+        
+    <div style="margin-top:2rem">
+        <h2 style="color:#fff;margin-bottom:1rem;font-size:1.3rem">📈 ETF별 주가 & 배당 추이</h2>
+        
+        <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-header">
+                <h3><span class="badge badge-cony" style="font-size:0.9rem;padding:4px 10px">CONY</span>
+                    <small style="color:#888;margin-left:0.5rem">Coinbase(COIN) 옵션 인컴 전략</small>
+                </h3>
+                <div style="text-align:right">
+                    <span style="color:#ff9800;font-weight:700">$19.63</span>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">최고 $47.63</span>
+                    <span style="color:#4caf50;font-size:0.75rem;margin-left:0.5rem">배당 $0.2794</span>
+                </div>
+            </div>
+            <div style="position:relative;height:280px;width:100%">
+                <canvas id="chart_cony"></canvas>
+            </div>
+        </div>
+        <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-header">
+                <h3><span class="badge badge-msty" style="font-size:0.9rem;padding:4px 10px">MSTY</span>
+                    <small style="color:#888;margin-left:0.5rem">Strategy Inc(MSTR) 옵션 인컴 전략</small>
+                </h3>
+                <div style="text-align:right">
+                    <span style="color:#2196f3;font-weight:700">$12.83</span>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">최고 $47.89</span>
+                    <span style="color:#4caf50;font-size:0.75rem;margin-left:0.5rem">배당 $0.2061</span>
+                </div>
+            </div>
+            <div style="position:relative;height:280px;width:100%">
+                <canvas id="chart_msty"></canvas>
+            </div>
+        </div>
+        <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-header">
+                <h3><span class="badge badge-ybit" style="font-size:0.9rem;padding:4px 10px">YBIT</span>
+                    <small style="color:#888;margin-left:0.5rem">iShares Bitcoin Trust(IBIT) 옵션 인컴 전략</small>
+                </h3>
+                <div style="text-align:right">
+                    <span style="color:#9c27b0;font-weight:700">$18.94</span>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">최고 $33.49</span>
+                    <span style="color:#4caf50;font-size:0.75rem;margin-left:0.5rem">배당 $0.1718</span>
+                </div>
+            </div>
+            <div style="position:relative;height:280px;width:100%">
+                <canvas id="chart_ybit"></canvas>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script>
+        new Chart(document.getElementById('chart_cony').getContext('2d'), {
+            type: 'line',
+            data: { datasets: [{"label": "CONY 주가 ($)", "data": [{"x": "2023-08-14", "y": 15.25}, {"x": "2023-08-21", "y": 15.54}, {"x": "2023-08-28", "y": 16.44}, {"x": "2023-09-04", "y": 17.26}, {"x": "2023-09-11", "y": 17.55}, {"x": "2023-09-18", "y": 15.42}, {"x": "2023-09-25", "y": 16.26}, {"x": "2023-10-02", "y": 17.0}, {"x": "2023-10-09", "y": 16.2}, {"x": "2023-10-16", "y": 16.65}, {"x": "2023-10-23", "y": 16.04}, {"x": "2023-10-30", "y": 19.45}, {"x": "2023-11-06", "y": 20.34}, {"x": "2023-11-13", "y": 21.5}, {"x": "2023-11-20", "y": 22.43}, {"x": "2023-11-27", "y": 23.71}, {"x": "2023-12-04", "y": 24.94}, {"x": "2023-12-11", "y": 25.84}, {"x": "2023-12-18", "y": 29.26}, {"x": "2023-12-25", "y": 29.63}, {"x": "2024-01-01", "y": 26.81}, {"x": "2024-01-08", "y": 23.2}, {"x": "2024-01-15", "y": 22.24}, {"x": "2024-01-22", "y": 22.69}, {"x": "2024-01-29", "y": 23.71}, {"x": "2024-02-05", "y": 24.99}, {"x": "2024-02-12", "y": 28.21}, {"x": "2024-02-19", "y": 26.46}, {"x": "2024-02-26", "y": 29.81}, {"x": "2024-03-04", "y": 35.28}, {"x": "2024-03-11", "y": 33.62}, {"x": "2024-03-18", "y": 36.21}, {"x": "2024-03-25", "y": 38.31}, {"x": "2024-04-01", "y": 35.89}, {"x": "2024-04-08", "y": 37.26}, {"x": "2024-04-15", "y": 32.51}, {"x": "2024-04-22", "y": 36.32}, {"x": "2024-04-29", "y": 35.66}, {"x": "2024-05-06", "y": 32.59}, {"x": "2024-05-13", "y": 34.1}, {"x": "2024-05-20", "y": 37.29}, {"x": "2024-05-27", "y": 35.91}, {"x": "2024-06-03", "y": 36.76}, {"x": "2024-06-10", "y": 37.05}, {"x": "2024-06-17", "y": 34.58}, {"x": "2024-06-24", "y": 34.54}, {"x": "2024-07-01", "y": 35.17}, {"x": "2024-07-08", "y": 34.91}, {"x": "2024-07-15", "y": 37.22}, {"x": "2024-07-22", "y": 35.79}, {"x": "2024-07-29", "y": 31.24}, {"x": "2024-08-05", "y": 30.04}, {"x": "2024-08-12", "y": 31.72}, {"x": "2024-08-19", "y": 32.85}, {"x": "2024-08-26", "y": 29.55}, {"x": "2024-09-02", "y": 24.04}, {"x": "2024-09-09", "y": 26.39}, {"x": "2024-09-16", "y": 27.51}, {"x": "2024-09-23", "y": 29.82}, {"x": "2024-09-30", "y": 27.3}, {"x": "2024-10-07", "y": 28.02}, {"x": "2024-10-14", "y": 33.07}, {"x": "2024-10-21", "y": 31.33}, {"x": "2024-10-28", "y": 28.59}, {"x": "2024-11-04", "y": 38.82}, {"x": "2024-11-11", "y": 42.09}, {"x": "2024-11-18", "y": 42.86}, {"x": "2024-11-25", "y": 42.81}, {"x": "2024-12-02", "y": 47.63}, {"x": "2024-12-09", "y": 44.04}, {"x": "2024-12-16", "y": 40.31}, {"x": "2024-12-23", "y": 38.73}, {"x": "2024-12-30", "y": 39.07}, {"x": "2025-01-06", "y": 37.19}, {"x": "2025-01-13", "y": 40.78}, {"x": "2025-01-20", "y": 41.65}, {"x": "2025-01-27", "y": 41.17}, {"x": "2025-02-03", "y": 39.21}, {"x": "2025-02-10", "y": 39.86}, {"x": "2025-02-17", "y": 34.85}, {"x": "2025-02-24", "y": 32.31}, {"x": "2025-03-03", "y": 32.85}, {"x": "2025-03-10", "y": 28.25}, {"x": "2025-03-17", "y": 29.49}, {"x": "2025-03-24", "y": 26.73}, {"x": "2025-03-31", "y": 24.71}, {"x": "2025-04-07", "y": 26.4}, {"x": "2025-04-14", "y": 26.73}, {"x": "2025-04-21", "y": 30.31}, {"x": "2025-04-28", "y": 30.13}, {"x": "2025-05-05", "y": 29.77}, {"x": "2025-05-12", "y": 34.82}, {"x": "2025-05-19", "y": 35.29}, {"x": "2025-05-26", "y": 33.44}, {"x": "2025-06-02", "y": 34.31}, {"x": "2025-06-09", "y": 33.48}, {"x": "2025-06-16", "y": 39.0}, {"x": "2025-06-23", "y": 42.16}, {"x": "2025-06-30", "y": 42.2}, {"x": "2025-07-07", "y": 45.1}, {"x": "2025-07-14", "y": 47.39}, {"x": "2025-07-21", "y": 44.9}, {"x": "2025-07-28", "y": 36.46}, {"x": "2025-08-04", "y": 36.26}, {"x": "2025-08-11", "y": 36.71}, {"x": "2025-08-18", "y": 37.0}, {"x": "2025-08-25", "y": 36.0}, {"x": "2025-09-01", "y": 35.74}, {"x": "2025-09-08", "y": 37.52}, {"x": "2025-09-15", "y": 39.27}, {"x": "2025-09-22", "y": 36.3}, {"x": "2025-09-29", "y": 42.24}, {"x": "2025-10-06", "y": 39.83}, {"x": "2025-10-13", "y": 37.68}, {"x": "2025-10-20", "y": 39.33}, {"x": "2025-10-27", "y": 38.82}, {"x": "2025-11-03", "y": 35.19}, {"x": "2025-11-10", "y": 32.81}, {"x": "2025-11-17", "y": 28.21}, {"x": "2025-11-24", "y": 31.0}, {"x": "2025-12-01", "y": 30.9}, {"x": "2025-12-08", "y": 30.95}, {"x": "2025-12-15", "y": 28.77}, {"x": "2025-12-22", "y": 28.06}, {"x": "2025-12-29", "y": 28.02}, {"x": "2026-01-05", "y": 28.44}, {"x": "2026-01-12", "y": 28.38}, {"x": "2026-01-19", "y": 25.84}, {"x": "2026-01-26", "y": 23.35}, {"x": "2026-02-02", "y": 19.84}, {"x": "2026-02-09", "y": 19.64}, {"x": "2026-02-16", "y": 20.38}, {"x": "2026-02-23", "y": 21.03}, {"x": "2026-03-02", "y": 23.01}, {"x": "2026-03-09", "y": 23.03}, {"x": "2026-03-16", "y": 23.47}, {"x": "2026-03-23", "y": 19.66}, {"x": "2026-03-30", "y": 20.85}, {"x": "2026-04-06", "y": 20.68}, {"x": "2026-04-13", "y": 24.44}, {"x": "2026-04-20", "y": 23.92}, {"x": "2026-04-27", "y": 23.1}, {"x": "2026-05-04", "y": 23.94}, {"x": "2026-05-11", "y": 23.45}, {"x": "2026-05-18", "y": 22.39}, {"x": "2026-05-25", "y": 22.78}, {"x": "2026-06-01", "y": 19.0}, {"x": "2026-06-08", "y": 19.92}, {"x": "2026-06-15", "y": 20.2}, {"x": "2026-06-22", "y": 18.69}, {"x": "2026-06-29", "y": 20.11}, {"x": "2026-07-06", "y": 19.63}, {"x": "2026-07-13", "y": 20.39}], "borderColor": "#ff9800", "backgroundColor": "#ff980015", "borderWidth": 2, "pointRadius": 0, "tension": 0.3, "fill": true, "yAxisID": "y"}, {"label": "CONY 배당금 ($)", "data": [{"x": "2026-04-17", "y": 0.3833}, {"x": "2026-04-24", "y": 0.4161}, {"x": "2026-05-01", "y": 0.5307}, {"x": "2026-05-08", "y": 0.4464}, {"x": "2026-05-15", "y": 0.5631}, {"x": "2026-05-22", "y": 0.3427}, {"x": "2026-05-29", "y": 0.3345}, {"x": "2026-06-05", "y": 0.2791}, {"x": "2026-06-12", "y": 0.2681}, {"x": "2026-06-22", "y": 0.2858}, {"x": "2026-06-26", "y": 0.2598}, {"x": "2026-07-06", "y": 0.2389}, {"x": "2026-07-10", "y": 0.2794}], "borderColor": "#4caf50", "backgroundColor": "#4caf5033", "borderWidth": 1.5, "pointRadius": 2, "pointBackgroundColor": "#4caf50", "tension": 0.3, "fill": true, "yAxisID": "y1"}] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#ccc', font: { size: 10 } } },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.85)',
+                        titleColor: '#fff',
+                        bodyColor: '#ccc',
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.yAxisID === 'y'
+                                    ? ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2)
+                                    : ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(4);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'month', displayFormats: { month: 'yy-MM' } },
+                        ticks: { color: '#666', maxTicksLimit: 12 },
+                        grid: { color: 'rgba(255,255,255,0.03)' }
+                    },
+                    y: {
+                        position: 'left',
+                        title: { display: true, text: '주가 ($)', color: '#ff9800' },
+                        ticks: { color: '#ff9800' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y1: {
+                        position: 'right',
+                        title: { display: true, text: '배당금 ($)', color: '#4caf50' },
+                        ticks: { color: '#4caf50' },
+                        grid: { drawOnChartArea: false },
+                        min: 0,
+                    }
+                }
+            }
+        });
+        
+        new Chart(document.getElementById('chart_msty').getContext('2d'), {
+            type: 'line',
+            data: { datasets: [{"label": "MSTY 주가 ($)", "data": [{"x": "2024-02-19", "y": 11.56}, {"x": "2024-02-26", "y": 14.2}, {"x": "2024-03-04", "y": 18.52}, {"x": "2024-03-11", "y": 21.85}, {"x": "2024-03-18", "y": 20.38}, {"x": "2024-03-25", "y": 23.0}, {"x": "2024-04-01", "y": 20.34}, {"x": "2024-04-08", "y": 21.08}, {"x": "2024-04-15", "y": 17.57}, {"x": "2024-04-22", "y": 19.15}, {"x": "2024-04-29", "y": 18.8}, {"x": "2024-05-06", "y": 18.67}, {"x": "2024-05-13", "y": 20.92}, {"x": "2024-05-20", "y": 22.39}, {"x": "2024-05-27", "y": 20.98}, {"x": "2024-06-03", "y": 21.89}, {"x": "2024-06-10", "y": 20.79}, {"x": "2024-06-17", "y": 20.93}, {"x": "2024-06-24", "y": 20.39}, {"x": "2024-07-01", "y": 18.97}, {"x": "2024-07-08", "y": 20.57}, {"x": "2024-07-15", "y": 22.93}, {"x": "2024-07-22", "y": 23.53}, {"x": "2024-07-29", "y": 20.69}, {"x": "2024-08-05", "y": 19.51}, {"x": "2024-08-12", "y": 19.6}, {"x": "2024-08-19", "y": 20.99}, {"x": "2024-08-26", "y": 19.37}, {"x": "2024-09-02", "y": 17.41}, {"x": "2024-09-09", "y": 19.95}, {"x": "2024-09-16", "y": 20.81}, {"x": "2024-09-23", "y": 23.63}, {"x": "2024-09-30", "y": 24.09}, {"x": "2024-10-07", "y": 26.95}, {"x": "2024-10-14", "y": 27.84}, {"x": "2024-10-21", "y": 29.21}, {"x": "2024-10-28", "y": 29.1}, {"x": "2024-11-04", "y": 32.76}, {"x": "2024-11-11", "y": 37.35}, {"x": "2024-11-18", "y": 42.11}, {"x": "2024-11-25", "y": 39.95}, {"x": "2024-12-02", "y": 41.76}, {"x": "2024-12-09", "y": 44.14}, {"x": "2024-12-16", "y": 40.32}, {"x": "2024-12-23", "y": 38.12}, {"x": "2024-12-30", "y": 38.19}, {"x": "2025-01-06", "y": 36.84}, {"x": "2025-01-13", "y": 41.74}, {"x": "2025-01-20", "y": 39.04}, {"x": "2025-01-27", "y": 37.52}, {"x": "2025-02-03", "y": 37.35}, {"x": "2025-02-10", "y": 38.43}, {"x": "2025-02-17", "y": 35.16}, {"x": "2025-02-24", "y": 30.39}, {"x": "2025-03-03", "y": 32.9}, {"x": "2025-03-10", "y": 33.83}, {"x": "2025-03-17", "y": 34.98}, {"x": "2025-03-24", "y": 33.03}, {"x": "2025-03-31", "y": 33.45}, {"x": "2025-04-07", "y": 34.43}, {"x": "2025-04-14", "y": 36.77}, {"x": "2025-04-21", "y": 40.85}, {"x": "2025-04-28", "y": 43.54}, {"x": "2025-05-05", "y": 44.98}, {"x": "2025-05-12", "y": 43.78}, {"x": "2025-05-19", "y": 41.16}, {"x": "2025-05-26", "y": 41.21}, {"x": "2025-06-02", "y": 42.17}, {"x": "2025-06-09", "y": 43.32}, {"x": "2025-06-16", "y": 42.28}, {"x": "2025-06-23", "y": 43.85}, {"x": "2025-06-30", "y": 45.33}, {"x": "2025-07-07", "y": 47.89}, {"x": "2025-07-14", "y": 47.04}, {"x": "2025-07-21", "y": 45.2}, {"x": "2025-07-28", "y": 41.16}, {"x": "2025-08-04", "y": 44.11}, {"x": "2025-08-11", "y": 41.14}, {"x": "2025-08-18", "y": 40.43}, {"x": "2025-08-25", "y": 38.16}, {"x": "2025-09-01", "y": 38.46}, {"x": "2025-09-08", "y": 38.41}, {"x": "2025-09-15", "y": 39.49}, {"x": "2025-09-22", "y": 35.63}, {"x": "2025-09-29", "y": 38.88}, {"x": "2025-10-06", "y": 34.24}, {"x": "2025-10-13", "y": 32.85}, {"x": "2025-10-20", "y": 33.09}, {"x": "2025-10-27", "y": 31.26}, {"x": "2025-11-03", "y": 28.21}, {"x": "2025-11-10", "y": 23.76}, {"x": "2025-11-17", "y": 20.69}, {"x": "2025-11-24", "y": 21.62}, {"x": "2025-12-01", "y": 22.07}, {"x": "2025-12-08", "y": 21.94}, {"x": "2025-12-15", "y": 20.74}, {"x": "2025-12-22", "y": 20.18}, {"x": "2025-12-29", "y": 20.08}, {"x": "2026-01-05", "y": 20.03}, {"x": "2026-01-12", "y": 21.83}, {"x": "2026-01-19", "y": 20.72}, {"x": "2026-01-26", "y": 19.13}, {"x": "2026-02-02", "y": 17.11}, {"x": "2026-02-09", "y": 17.28}, {"x": "2026-02-16", "y": 17.13}, {"x": "2026-02-23", "y": 17.14}, {"x": "2026-03-02", "y": 17.47}, {"x": "2026-03-09", "y": 18.33}, {"x": "2026-03-16", "y": 17.97}, {"x": "2026-03-23", "y": 16.92}, {"x": "2026-03-30", "y": 16.32}, {"x": "2026-04-06", "y": 17.36}, {"x": "2026-04-13", "y": 21.4}, {"x": "2026-04-20", "y": 21.85}, {"x": "2026-04-27", "y": 22.53}, {"x": "2026-05-04", "y": 23.47}, {"x": "2026-05-11", "y": 22.5}, {"x": "2026-05-18", "y": 20.63}, {"x": "2026-05-25", "y": 20.52}, {"x": "2026-06-01", "y": 15.89}, {"x": "2026-06-08", "y": 16.38}, {"x": "2026-06-15", "y": 15.05}, {"x": "2026-06-22", "y": 11.21}, {"x": "2026-06-29", "y": 13.36}, {"x": "2026-07-06", "y": 12.83}, {"x": "2026-07-13", "y": 13.61}], "borderColor": "#2196f3", "backgroundColor": "#2196f315", "borderWidth": 2, "pointRadius": 0, "tension": 0.3, "fill": true, "yAxisID": "y"}, {"label": "MSTY 배당금 ($)", "data": [{"x": "2026-04-17", "y": 0.3038}, {"x": "2026-04-24", "y": 0.5211}, {"x": "2026-05-01", "y": 0.4886}, {"x": "2026-05-08", "y": 0.5553}, {"x": "2026-05-15", "y": 0.5363}, {"x": "2026-05-22", "y": 0.3136}, {"x": "2026-05-29", "y": 0.2979}, {"x": "2026-06-05", "y": 0.2459}, {"x": "2026-06-12", "y": 0.2117}, {"x": "2026-06-22", "y": 0.2286}, {"x": "2026-06-26", "y": 0.1883}, {"x": "2026-07-06", "y": 0.1549}, {"x": "2026-07-10", "y": 0.2061}], "borderColor": "#4caf50", "backgroundColor": "#4caf5033", "borderWidth": 1.5, "pointRadius": 2, "pointBackgroundColor": "#4caf50", "tension": 0.3, "fill": true, "yAxisID": "y1"}] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#ccc', font: { size: 10 } } },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.85)',
+                        titleColor: '#fff',
+                        bodyColor: '#ccc',
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.yAxisID === 'y'
+                                    ? ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2)
+                                    : ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(4);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'month', displayFormats: { month: 'yy-MM' } },
+                        ticks: { color: '#666', maxTicksLimit: 12 },
+                        grid: { color: 'rgba(255,255,255,0.03)' }
+                    },
+                    y: {
+                        position: 'left',
+                        title: { display: true, text: '주가 ($)', color: '#2196f3' },
+                        ticks: { color: '#2196f3' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y1: {
+                        position: 'right',
+                        title: { display: true, text: '배당금 ($)', color: '#4caf50' },
+                        ticks: { color: '#4caf50' },
+                        grid: { drawOnChartArea: false },
+                        min: 0,
+                    }
+                }
+            }
+        });
+        
+        new Chart(document.getElementById('chart_ybit').getContext('2d'), {
+            type: 'line',
+            data: { datasets: [{"label": "YBIT 주가 ($)", "data": [{"x": "2024-04-22", "y": 25.63}, {"x": "2024-04-29", "y": 24.79}, {"x": "2024-05-06", "y": 24.89}, {"x": "2024-05-13", "y": 25.11}, {"x": "2024-05-20", "y": 26.38}, {"x": "2024-05-27", "y": 26.46}, {"x": "2024-06-03", "y": 26.06}, {"x": "2024-06-10", "y": 24.82}, {"x": "2024-06-17", "y": 24.52}, {"x": "2024-06-24", "y": 23.43}, {"x": "2024-07-01", "y": 22.64}, {"x": "2024-07-08", "y": 23.54}, {"x": "2024-07-15", "y": 24.43}, {"x": "2024-07-22", "y": 25.11}, {"x": "2024-07-29", "y": 22.74}, {"x": "2024-08-05", "y": 22.23}, {"x": "2024-08-12", "y": 22.44}, {"x": "2024-08-19", "y": 23.2}, {"x": "2024-08-26", "y": 21.44}, {"x": "2024-09-02", "y": 19.56}, {"x": "2024-09-09", "y": 21.89}, {"x": "2024-09-16", "y": 22.3}, {"x": "2024-09-23", "y": 22.94}, {"x": "2024-09-30", "y": 21.02}, {"x": "2024-10-07", "y": 21.11}, {"x": "2024-10-14", "y": 23.3}, {"x": "2024-10-21", "y": 23.11}, {"x": "2024-10-28", "y": 22.94}, {"x": "2024-11-04", "y": 24.5}, {"x": "2024-11-11", "y": 27.55}, {"x": "2024-11-18", "y": 29.2}, {"x": "2024-11-25", "y": 27.85}, {"x": "2024-12-02", "y": 28.45}, {"x": "2024-12-09", "y": 28.53}, {"x": "2024-12-16", "y": 26.74}, {"x": "2024-12-23", "y": 26.22}, {"x": "2024-12-30", "y": 27.45}, {"x": "2025-01-06", "y": 26.34}, {"x": "2025-01-13", "y": 28.55}, {"x": "2025-01-20", "y": 28.74}, {"x": "2025-01-27", "y": 28.2}, {"x": "2025-02-03", "y": 26.84}, {"x": "2025-02-10", "y": 27.38}, {"x": "2025-02-17", "y": 27.03}, {"x": "2025-02-24", "y": 24.2}, {"x": "2025-03-03", "y": 24.69}, {"x": "2025-03-10", "y": 24.2}, {"x": "2025-03-17", "y": 24.22}, {"x": "2025-03-24", "y": 24.3}, {"x": "2025-03-31", "y": 24.17}, {"x": "2025-04-07", "y": 24.62}, {"x": "2025-04-14", "y": 25.27}, {"x": "2025-04-21", "y": 27.3}, {"x": "2025-04-28", "y": 28.18}, {"x": "2025-05-05", "y": 29.05}, {"x": "2025-05-12", "y": 29.46}, {"x": "2025-05-19", "y": 30.27}, {"x": "2025-05-26", "y": 29.41}, {"x": "2025-06-02", "y": 29.35}, {"x": "2025-06-09", "y": 29.27}, {"x": "2025-06-16", "y": 29.13}, {"x": "2025-06-23", "y": 30.13}, {"x": "2025-06-30", "y": 30.73}, {"x": "2025-07-07", "y": 32.23}, {"x": "2025-07-14", "y": 32.32}, {"x": "2025-07-21", "y": 32.32}, {"x": "2025-07-28", "y": 31.76}, {"x": "2025-08-04", "y": 32.67}, {"x": "2025-08-11", "y": 32.36}, {"x": "2025-08-18", "y": 32.14}, {"x": "2025-08-25", "y": 30.29}, {"x": "2025-09-01", "y": 31.28}, {"x": "2025-09-08", "y": 32.38}, {"x": "2025-09-15", "y": 32.18}, {"x": "2025-09-22", "y": 30.86}, {"x": "2025-09-29", "y": 33.49}, {"x": "2025-10-06", "y": 32.4}, {"x": "2025-10-13", "y": 29.82}, {"x": "2025-10-20", "y": 30.92}, {"x": "2025-10-27", "y": 30.84}, {"x": "2025-11-03", "y": 29.34}, {"x": "2025-11-10", "y": 26.98}, {"x": "2025-11-17", "y": 24.53}, {"x": "2025-11-24", "y": 26.12}, {"x": "2025-12-01", "y": 25.98}, {"x": "2025-12-08", "y": 26.28}, {"x": "2025-12-15", "y": 25.74}, {"x": "2025-12-22", "y": 25.59}, {"x": "2025-12-29", "y": 26.07}, {"x": "2026-01-05", "y": 26.05}, {"x": "2026-01-12", "y": 27.21}, {"x": "2026-01-19", "y": 25.55}, {"x": "2026-01-26", "y": 24.09}, {"x": "2026-02-02", "y": 20.22}, {"x": "2026-02-09", "y": 19.96}, {"x": "2026-02-16", "y": 19.97}, {"x": "2026-02-23", "y": 19.58}, {"x": "2026-03-02", "y": 20.37}, {"x": "2026-03-09", "y": 21.09}, {"x": "2026-03-16", "y": 20.9}, {"x": "2026-03-23", "y": 20.02}, {"x": "2026-03-30", "y": 20.36}, {"x": "2026-04-06", "y": 21.61}, {"x": "2026-04-13", "y": 22.23}, {"x": "2026-04-20", "y": 22.34}, {"x": "2026-04-27", "y": 22.5}, {"x": "2026-05-04", "y": 22.86}, {"x": "2026-05-11", "y": 22.76}, {"x": "2026-05-18", "y": 22.02}, {"x": "2026-05-25", "y": 21.43}, {"x": "2026-06-01", "y": 17.9}, {"x": "2026-06-08", "y": 18.68}, {"x": "2026-06-15", "y": 18.74}, {"x": "2026-06-22", "y": 18.14}, {"x": "2026-06-29", "y": 18.57}, {"x": "2026-07-06", "y": 18.94}, {"x": "2026-07-13", "y": 19.11}], "borderColor": "#9c27b0", "backgroundColor": "#9c27b015", "borderWidth": 2, "pointRadius": 0, "tension": 0.3, "fill": true, "yAxisID": "y"}, {"label": "YBIT 배당금 ($)", "data": [{"x": "2026-04-17", "y": 0.2778}, {"x": "2026-04-24", "y": 0.2692}, {"x": "2026-05-01", "y": 0.3319}, {"x": "2026-05-08", "y": 0.3201}, {"x": "2026-05-15", "y": 0.2356}, {"x": "2026-05-22", "y": 0.1833}, {"x": "2026-05-29", "y": 0.1913}, {"x": "2026-06-05", "y": 0.1648}, {"x": "2026-06-12", "y": 0.1497}, {"x": "2026-06-22", "y": 0.1513}, {"x": "2026-06-26", "y": 0.1443}, {"x": "2026-07-06", "y": 0.1488}, {"x": "2026-07-10", "y": 0.1718}], "borderColor": "#4caf50", "backgroundColor": "#4caf5033", "borderWidth": 1.5, "pointRadius": 2, "pointBackgroundColor": "#4caf50", "tension": 0.3, "fill": true, "yAxisID": "y1"}] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#ccc', font: { size: 10 } } },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.85)',
+                        titleColor: '#fff',
+                        bodyColor: '#ccc',
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.yAxisID === 'y'
+                                    ? ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2)
+                                    : ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(4);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'month', displayFormats: { month: 'yy-MM' } },
+                        ticks: { color: '#666', maxTicksLimit: 12 },
+                        grid: { color: 'rgba(255,255,255,0.03)' }
+                    },
+                    y: {
+                        position: 'left',
+                        title: { display: true, text: '주가 ($)', color: '#9c27b0' },
+                        ticks: { color: '#9c27b0' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y1: {
+                        position: 'right',
+                        title: { display: true, text: '배당금 ($)', color: '#4caf50' },
+                        ticks: { color: '#4caf50' },
+                        grid: { drawOnChartArea: false },
+                        min: 0,
+                    }
+                }
+            }
+        });
+        </script>
+
+        <!-- 주간 뉴스 -->
+        
+    <div class="card" style="margin-top:2rem">
+        <div class="card-header">
+            <h3>📰 주간 뉴스 & 분석</h3>
+            <small style="color:#888">2026-07-15 기준</small>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem">
+            <div>
+                <h4 style="color:#ff9800;margin-bottom:0.8rem;font-size:0.95rem">🏦 YieldMax 커버드콜 ETF</h4>
+                <ul style="list-style:none;padding:0">
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMizgFBVV95cUxOcEZ3d0NrRnAtbF8zVzlUNVpTV3hFNlNablY4YWNndFNUOC03Vi1FY2o2ZkVrZlh3VzE3dUdWTjk3WmNhMGNSMXkxbWhodDMtMlFsNlJYMm5ta3g1eFBRbGdCWldsVnIyRmRreG5ETndLR3AtcGdZeEVUYmF3V3ZpXzdDMjJjYzBpTHhHbEZWRVYwbDg0MVBmZ3YxWWpuSG0xeVFRV1oxZzJ1TGxsUmgtdXJUZ1RaNFlMa1p6b01yalFIejJyQkZTX3FDMkE1dw?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">YieldMax® ETFs Announces Weekly Distributions for Group 1 ETFs - GlobeNewswire</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Tue, 14 Jul 2026</span>
+                </li>
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMikgFBVV95cUxOYTBod1ZjMTRXVVhPZWhqbEUzdDJpVE9rMG12VFNZV1dzVVYtaUdvNnpxN2R4OV9PT3pCWU1HUDBuSHE3anYzclMxNDd3R1h0TjBTR3J5SDFBN3p4N19FTldNQ25MSjZGcU5CY0pGOFROMThIZU5VaXQtWHBwXzZqRkNFbU0tQzM5NzI2Ty1PTUNodw?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">Are YieldMax ETFs a Sustainable Source of High Income - Kavout | AI</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Wed, 18 Feb 2026</span>
+                </li>
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMi6wFBVV95cUxQb3JnZFZiTUFBMGZCZWRianI4aTNUQnFxSGltZEdSb1p6S2lwSzg0X0l4Mk9YaE1RWThVbklmQ1FhVFVQeS15emFXMUF1WWcwVnQybnZzVEtOZWkxNzQ0NEpjMkhvdWtWRWgyUmFFYXFRZE9MblczcEZ1czBzb3V0NVZzR2hfRU9BLTJDN1FmMEduUFFfOVdBSFYwc09pZ1NZcnZGYlUySWtFNXVOdllieG9fUEdQSUZMQlhmNDVIOVd3S2FjVTAxY09GSUpvS2lGUDRUMURxd1BCQmRYZTJKanprNW9DV0VEbXpN?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">How YieldMax Just Made Covered-Call ETFs More Like a Regular Paycheck… and 1 Options Strategy That’s Even Better - Barchart.com</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Fri, 10 Oct 2025</span>
+                </li></ul>
+            </div>
+            <div>
+                <h4 style="color:#f7931a;margin-bottom:0.8rem;font-size:0.95rem">₿ 비트코인 & 크립토</h4>
+                <ul style="list-style:none;padding:0">
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMiwgFBVV95cUxQdTE4SEItVGROOUZQVFdWQWdxYkxUTDgxeU9EdFBqSWJpeFVSRXlhSDM0OXZlcEd4b0hHX2Q0TmRiR3JQQ2Rnbmp0a0hpTThiTEFEc2ExSEtEb2FZNHhiME5pVEVtWjRhbW1fUDVCZ005dDBVY2NxNHFlNFVwc280dm9OTGJWN18xN0tVTE9PN3B3MDJxcGlTSUxSOEJxQWxzZ1cwMVlaRTJFQmZsU2NDTVdyU2k0QlZlVGNoN3FjYVUyZw?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">Bitcoin Reclaims $65K: What’s Next for the Crypto Market in the Second Half of July? - Bitcoin Foundation</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Wed, 15 Jul 2026</span>
+                </li>
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMipgFBVV95cUxNNHNiNG9fOWFvWGtLOGE4aHFUZ2ZscWhfUVoxTUpPUnloakVmYVFiaVVNblJmMjhVVmZPVHlNTUdvdnFhTmlHLUtxQmFKRFBmbHcxci1qWUJfSHR2dDJxSEQ3UXZpamZLeDF0WXRvcUVYYnpteWo2b2JjTTY5dmYySEJRU2lWWlRqLXU3UV9IQXM0REY3dlJhR1lYUTZNVFh6QzJKRWhB?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">Crypto Market Breaks Above the 50-Day MA: Bitcoin Eyes $73–74K - Investing.com</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Wed, 15 Jul 2026</span>
+                </li>
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMiugFBVV95cUxQLTJYLVMyRUI4T0ZfYmI2LXJKUmdFS1BSeFdreHBPaU9VeGttbXU0NDdiajVBcmtYQ1R2dU1na1hSWjlaZkZTVDc1ZlVOZnYxYjBQVGNqdWV1R080MTBIZFNPQmFZLW9yVXVMQVZhQnRtRENmTFlQZEdZNjhQMWxKSHQ3TjBYeFQ3S0tSY204M1ZxZXVUTzhTR1JDLUgxeTlCOTdXTDktQk15ZmJoalMwNFI2Q0ZHRThWT2c?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">Bitcoin, ether hold steady after rising on U.S. inflation report: Crypto Markets Today - CoinDesk</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Wed, 15 Jul 2026</span>
+                </li>
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMilgFBVV95cUxQQWIxNm5CZFlyVHZQa3lKWWJmaUlBVXAtMzhzRFpyTFlMMlFxU2VHYUNvdVc4RHVCS2JQaGthbzlDUE1pR0JwYzNhc2EtbW9IaVFWMm1nUWZFSjRKaTZKTEFVcWVzd2FWT3ZzMmg4Tl9Pcnp0SmE4aUxNWDJvZmZKdFpVVkdLMm9QYXc1TjBwZzBPWDJETnc?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">COIN Stock Alert: 3 Reasons Why Coinbase Shares Are In Focus - Yahoo Finance</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Mon, 13 Jul 2026</span>
+                </li>
+                <li style="margin-bottom:0.8rem">
+                    <a href="https://news.google.com/rss/articles/CBMixwFBVV95cUxQakJ3TGx4SmFrX0I2TVhfVjBzZndQYVFfVGJNRWx5eVhLY2ZyT3k2bEtpM1FUNFNPVFVKcXE1TmkyVWFkZFdGWEhrMHRoMEROWVZsZVZLaFJfSkF2RUlheE9Qb3NPU0FWaWhPNkE2RWg4T2JzRzV6cUZmaGhpVFVTdHk3RFJGN1psa0VuTHJ3Sm1kN0R3dlh6M3JwRmNJOTdIYldnOWxMT29VMF9fYjd4Y01pZTc3YU01ZXF0ZHpobXpESFVmS25V?oc=5" target="_blank" style="color:#64b5f6;text-decoration:none;font-size:0.9rem">William Blair reiterates Coinbase stock rating despite estimate cuts - Investing.com</a>
+                    <span style="color:#555;font-size:0.75rem;margin-left:0.5rem">Wed, 15 Jul 2026</span>
+                </li></ul>
+            </div>
+        </div>
+        <p style="color:#555;font-size:0.7rem;margin-top:1rem;border-top:1px solid rgba(255,255,255,0.05);padding-top:0.5rem">
+            * 뉴스는 매주 금요일 자동 업데이트됩니다. 링크를 클릭하면 원문을 볼 수 있습니다.
+        </p>
+    </div>
+
+        <div class="footer">
+            데이터 출처: <a href="https://yieldmaxetfs.com/" target="_blank">yieldmaxetfs.com</a> |
+            세율: 15% |
+            보유: 아빠(CONY:181, MSTY:407, YBIT:40)
+            엄마(CONY:70, MSTY:69, YBIT:27)
+            시윤(CONY:40, MSTY:52, YBIT:20)
+        </div>
+    </div>
+</body>
+</html>
