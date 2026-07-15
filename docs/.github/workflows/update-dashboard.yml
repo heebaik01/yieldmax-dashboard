@@ -1,0 +1,42 @@
+name: Update YieldMax Dashboard
+
+on:
+  schedule:
+    - cron: '0 9 * * 5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate dashboard
+        run: python generate_sample_dashboard.py
+
+      - name: Copy dashboard to docs/
+        run: |
+          mkdir -p docs
+          cp yieldmax_dashboard.html docs/index.html
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/ logs/
+          git diff --cached --quiet || git commit -m "Update dashboard $(date +'%Y-%m-%d')"
+          git push
