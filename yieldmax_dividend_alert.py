@@ -1170,6 +1170,154 @@ def _generate_chart_section(all_fetched):
     <script>{chart_scripts}</script>"""
 
 
+def _generate_comparison_section():
+    """YieldMax 주요 ETF들을 비교하는 섹션을 생성합니다."""
+
+    # 주요 YieldMax ETF 정보 (웹사이트 기준 2026-07-22)
+    YIELDMAX_ETFS = [
+        {"ticker": "TSLY", "name": "Tesla 옵션 인컴", "underlying": "TSLA (Tesla)", "dist_rate": "48.4%", "roc": "0%", "category": "tech"},
+        {"ticker": "NVDY", "name": "NVIDIA 옵션 인컴", "underlying": "NVDA (NVIDIA)", "dist_rate": "38.7%", "roc": "0%", "category": "tech"},
+        {"ticker": "APLY", "name": "Apple 옵션 인컴", "underlying": "AAPL (Apple)", "dist_rate": "42.3%", "roc": "95%", "category": "tech"},
+        {"ticker": "MSFO", "name": "Microsoft 옵션 인컴", "underlying": "MSFT (Microsoft)", "dist_rate": "34.9%", "roc": "92%", "category": "tech"},
+        {"ticker": "FBY", "name": "Meta 옵션 인컴", "underlying": "META (Meta)", "dist_rate": "55.4%", "roc": "96%", "category": "tech"},
+        {"ticker": "GOOY", "name": "Google 옵션 인컴", "underlying": "GOOGL (Alphabet)", "dist_rate": "31.8%", "roc": "67%", "category": "tech"},
+        {"ticker": "AMZY", "name": "Amazon 옵션 인컴", "underlying": "AMZN (Amazon)", "dist_rate": "35.7%", "roc": "77%", "category": "tech"},
+        {"ticker": "NFLY", "name": "Netflix 옵션 인컴", "underlying": "NFLX (Netflix)", "dist_rate": "35.5%", "roc": "0%", "category": "tech"},
+        {"ticker": "PLTY", "name": "Palantir 옵션 인컴", "underlying": "PLTR (Palantir)", "dist_rate": "49.8%", "roc": "94%", "category": "tech"},
+        {"ticker": "CONY", "name": "Coinbase 옵션 인컴", "underlying": "COIN (Coinbase)", "dist_rate": "68.4%", "roc": "15%", "category": "crypto"},
+        {"ticker": "MSTY", "name": "Strategy 옵션 인컴", "underlying": "MSTR (Strategy/BTC)", "dist_rate": "85.6%", "roc": "8%", "category": "crypto"},
+        {"ticker": "YBIT", "name": "Bitcoin 옵션 인컴", "underlying": "IBIT (BTC ETF)", "dist_rate": "50.8%", "roc": "24%", "category": "crypto"},
+        {"ticker": "MARO", "name": "MARA 옵션 인컴", "underlying": "MARA (Marathon Digital)", "dist_rate": "84.8%", "roc": "0%", "category": "crypto"},
+        {"ticker": "HOOY", "name": "Robinhood 옵션 인컴", "underlying": "HOOD (Robinhood)", "dist_rate": "70.4%", "roc": "1%", "category": "fintech"},
+        {"ticker": "JPO", "name": "JP Morgan 옵션 인컴", "underlying": "JPM (JP Morgan)", "dist_rate": "33.6%", "roc": "94%", "category": "finance"},
+        {"ticker": "XOMO", "name": "Exxon 옵션 인컴", "underlying": "XOM (ExxonMobil)", "dist_rate": "42.4%", "roc": "94%", "category": "energy"},
+    ]
+
+    # Yahoo Finance에서 현재 주가 + 1개월 변동률 가져오기
+    if HAS_YFINANCE:
+        tickers_to_check = [e["ticker"] for e in YIELDMAX_ETFS]
+        try:
+            data = yf.download(tickers_to_check, period="1mo", progress=False)
+            if not data.empty:
+                close = data["Close"]
+                for etf in YIELDMAX_ETFS:
+                    t = etf["ticker"]
+                    if t in close.columns:
+                        col = close[t].dropna()
+                        if len(col) >= 2:
+                            current = float(col.iloc[-1])
+                            month_ago = float(col.iloc[0])
+                            change_1m = ((current - month_ago) / month_ago * 100)
+                            etf["price"] = round(current, 2)
+                            etf["change_1m"] = round(change_1m, 1)
+                        elif len(col) == 1:
+                            etf["price"] = round(float(col.iloc[0]), 2)
+                            etf["change_1m"] = 0
+        except Exception as e:
+            print(f"  ⚠️  비교 ETF 주가 조회 실패: {e}")
+
+    # HTML 생성
+    # 내가 보유한 ETF 표시
+    my_tickers = {"CONY", "MSTY", "YBIT"}
+
+    # 카테고리별 분류
+    categories = {
+        "crypto": {"label": "크립토/블록체인", "color": "#f7931a"},
+        "tech": {"label": "빅테크", "color": "#2196f3"},
+        "fintech": {"label": "핀테크", "color": "#9c27b0"},
+        "finance": {"label": "금융", "color": "#4caf50"},
+        "energy": {"label": "에너지", "color": "#ff5722"},
+    }
+
+    rows_html = ""
+    for etf in YIELDMAX_ETFS:
+        ticker = etf["ticker"]
+        price = etf.get("price", "-")
+        change = etf.get("change_1m", None)
+        dist_rate = etf["dist_rate"]
+        roc = etf["roc"]
+        underlying = etf["underlying"]
+        cat = categories.get(etf["category"], {"label": "", "color": "#888"})
+
+        # 내 보유 여부
+        is_mine = ticker in my_tickers
+        row_style = "background:rgba(255,213,79,0.05);border-left:3px solid #ffd54f" if is_mine else ""
+        mine_badge = '<span style="background:#ffd54f;color:#000;font-size:0.6rem;padding:1px 4px;border-radius:3px;margin-left:4px">보유</span>' if is_mine else ""
+
+        # 가격 변동 색상
+        if change is not None:
+            change_color = "#4caf50" if change >= 0 else "#ef5350"
+            change_arrow = "▲" if change >= 0 else "▼"
+            change_html = f'<span style="color:{change_color}">{change_arrow} {change:+.1f}%</span>'
+            price_html = f"${price}"
+        else:
+            change_html = "-"
+            price_html = "-"
+
+        # 배당률 색상 (높을수록 진한 초록, 단 ROC 높으면 주의)
+        try:
+            rate_val = float(dist_rate.replace("%", ""))
+            roc_val = float(roc.replace("%", ""))
+            if roc_val > 80:
+                rate_color = "#ff9800"  # ROC 높으면 주황 (실제 수익 아님)
+                rate_note = "⚠️"
+            elif rate_val > 60:
+                rate_color = "#4caf50"
+                rate_note = ""
+            else:
+                rate_color = "#64b5f6"
+                rate_note = ""
+        except ValueError:
+            rate_color = "#888"
+            rate_note = ""
+
+        rows_html += f"""
+            <tr style="{row_style}">
+                <td><strong>{ticker}</strong>{mine_badge}</td>
+                <td style="font-size:0.8rem">{underlying}</td>
+                <td style="font-size:0.7rem;color:{cat['color']}">{cat['label']}</td>
+                <td>{price_html}</td>
+                <td>{change_html}</td>
+                <td style="color:{rate_color};font-weight:600">{dist_rate} {rate_note}</td>
+                <td style="color:#888">{roc}</td>
+            </tr>"""
+
+    return f"""
+    <div class="card" style="margin-top:2rem">
+        <div class="card-header">
+            <h3>🔍 YieldMax ETF 비교</h3>
+            <small style="color:#888">주요 16개 ETF (07/22/2026 기준)</small>
+        </div>
+        <div style="margin-bottom:0.8rem;font-size:0.75rem;color:#888">
+            <span style="background:#ffd54f;color:#000;padding:1px 4px;border-radius:3px;font-size:0.6rem">보유</span> = 내가 보유 중 |
+            <span style="color:#ff9800">⚠️</span> = ROC 80%+ (배당 대부분이 원금반환) |
+            1개월 변동 = 주가 등락률
+        </div>
+        <div style="overflow-x:auto">
+            <table style="font-size:0.85rem">
+                <thead>
+                    <tr>
+                        <th>티커</th>
+                        <th>기초자산 (본주)</th>
+                        <th>분류</th>
+                        <th>현재가</th>
+                        <th>1개월</th>
+                        <th>배당률</th>
+                        <th>ROC%</th>
+                    </tr>
+                </thead>
+                <tbody>{rows_html}</tbody>
+            </table>
+        </div>
+        <div style="margin-top:1rem;padding:0.8rem;background:rgba(255,255,255,0.02);border-radius:8px;font-size:0.8rem;color:#aaa">
+            <strong style="color:#fff">읽는 법:</strong>
+            배당률이 높아도 ROC(Return of Capital)이 80%+이면 실제 수익이 아니라 원금을 돌려받는 것.
+            1개월 주가가 상승하면서 배당률도 유지되는 ETF가 가장 건강한 상태.
+            크립토 기반(CONY, MSTY, YBIT, MARO)은 변동성이 크고, 빅테크(NVDY, MSFO, GOOY)는 상대적으로 안정적.
+        </div>
+    </div>"""
+
+
 def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
     """보기 좋은 HTML 대시보드를 생성합니다."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -1194,6 +1342,9 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
 
     # ── 리스크 분석 섹션 생성 ──
     risk_section = _generate_risk_section(all_fetched)
+
+    # ── YieldMax 다른 ETF 비교 섹션 ──
+    comparison_section = _generate_comparison_section()
 
     # 최근 배당 히스토리 (날짜순 정렬 후 최근 12건)
     sorted_history = sorted(
@@ -1417,6 +1568,149 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
 
         <!-- 주간 뉴스 -->
         {news_section}
+
+        <!-- YieldMax 다른 ETF 비교 -->
+        {comparison_section}
+
+        <!-- AI 분석 챗 -->
+        <div id="ai-chat-section" class="card" style="margin-top:2rem;border:1px solid rgba(100,181,246,0.3)">
+            <div class="card-header">
+                <h3>🤖 AI 투자 분석 (Gemini)</h3>
+                <small style="color:#888">뉴스와 포트폴리오 기반 문답</small>
+            </div>
+            <div id="chat-setup" style="display:none;padding:1rem;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:1rem">
+                <p style="color:#aaa;font-size:0.85rem;margin-bottom:0.5rem">Gemini API Key를 입력하세요 (처음 한번만, 브라우저에 저장됨):</p>
+                <input type="password" id="api-key-input" style="width:100%;padding:0.5rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:0.85rem" placeholder="AIza...">
+                <button onclick="saveApiKey()" style="margin-top:0.5rem;padding:0.4rem 1rem;border-radius:6px;border:none;background:#4caf50;color:#fff;cursor:pointer;font-size:0.85rem">저장</button>
+            </div>
+            <div id="chat-messages" style="max-height:400px;overflow-y:auto;padding:0.5rem;margin-bottom:1rem">
+                <div class="ai-msg" style="background:rgba(100,181,246,0.1);border-radius:8px;padding:0.8rem;margin-bottom:0.5rem;font-size:0.85rem;color:#ccc">
+                    안녕하세요! 포트폴리오와 이번 주 뉴스를 기반으로 질문에 답해드립니다.<br>
+                    예시: "왜 약세장 신호인가?", "지금 MSTY를 팔아야 할까?", "NVDY로 갈아타면 어떨까?"
+                </div>
+            </div>
+            <div style="display:flex;gap:0.5rem">
+                <input type="text" id="chat-input" placeholder="질문을 입력하세요..." style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:0.9rem" onkeypress="if(event.key==='Enter')sendChat()">
+                <button onclick="sendChat()" style="padding:0.6rem 1.2rem;border-radius:8px;border:none;background:#2196f3;color:#fff;cursor:pointer;font-weight:600">전송</button>
+            </div>
+        </div>
+        <script>
+        // AI Chat with Gemini
+        const SYSTEM_CONTEXT = `당신은 YieldMax ETF 투자 분석 전문가입니다. 사용자의 포트폴리오와 최근 뉴스를 바탕으로 한국어로 답변합니다.
+
+현재 포트폴리오 상태:
+- 총 투자금: $102,773 (₩130,929,999)
+- 현재 평가금: ~$20,000 (주가 80-89% 하락)
+- 누적 배당금: ~$61,800 (회수율 57%)
+- 회수 예상: 2029년 10월 (39개월 후)
+- 보유: CONY(181주,아빠/70주,엄마/40주,시윤), MSTY(407주,아빠/69주,엄마/52주,시윤), YBIT(40주,아빠/27주,엄마/20주,시윤)
+- CONY 매수평단 $96.45 → 현재 ~$19, MSTY 매수평단 $113.78 → 현재 ~$12, YBIT 매수평단 $66.70 → 현재 ~$19
+
+최근 뉴스 요약:
+- MSTY: 주주들이 무제한 하방 리스크에 노출, 66%배당률은 미끼라는 분석
+- CONY: 화려한 수익률 뒤에 장기보유자에게 우려되는 트랙레코드
+- YieldMax: ROC(원금반환)가 배당금 대부분을 차지, 역분할 이력
+- BTC: $62K 근처에서 횡보, CPI 충격 4회 경험, 바닥 신호도 일부 감지
+- 크립토 시장: 인플레 우려로 약세, 하지만 Wintermute는 바닥 형성 가능성 시사
+
+투자 원칙:
+- 추가 매수 금지
+- 배당금 현금 보유 (재투자 X)  
+- 회수율 70% 도달 시 부분 매도
+- 배당 급감 또는 BTC 급락 시 손절 검토
+- 이 ETF는 원금 회수용이지 장기 투자용이 아님
+
+간결하고 실용적으로 답변하세요. 구체적 숫자를 활용하세요.`;
+
+        function getApiKey() {{
+            return localStorage.getItem('gemini_api_key') || '';
+        }}
+
+        function saveApiKey() {{
+            const key = document.getElementById('api-key-input').value.trim();
+            if (key) {{
+                localStorage.setItem('gemini_api_key', key);
+                document.getElementById('chat-setup').style.display = 'none';
+                addMessage('system', '✅ API Key 저장 완료! 이제 질문할 수 있습니다.');
+            }}
+        }}
+
+        function addMessage(type, text) {{
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            if (type === 'user') {{
+                div.style.cssText = 'background:rgba(255,255,255,0.05);border-radius:8px;padding:0.8rem;margin-bottom:0.5rem;font-size:0.85rem;color:#fff;text-align:right';
+                div.textContent = text;
+            }} else if (type === 'ai') {{
+                div.style.cssText = 'background:rgba(100,181,246,0.1);border-radius:8px;padding:0.8rem;margin-bottom:0.5rem;font-size:0.85rem;color:#ccc;white-space:pre-wrap';
+                div.innerHTML = text.replace(/\\n/g, '<br>');
+            }} else {{
+                div.style.cssText = 'text-align:center;padding:0.5rem;font-size:0.8rem;color:#888';
+                div.textContent = text;
+            }}
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }}
+
+        async function sendChat() {{
+            const input = document.getElementById('chat-input');
+            const question = input.value.trim();
+            if (!question) return;
+
+            const apiKey = getApiKey();
+            if (!apiKey) {{
+                document.getElementById('chat-setup').style.display = 'block';
+                return;
+            }}
+
+            addMessage('user', question);
+            input.value = '';
+            addMessage('system', '⏳ 분석 중...');
+
+            try {{
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{apiKey}}`, {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        contents: [{{
+                            parts: [{{ text: SYSTEM_CONTEXT + '\\n\\n사용자 질문: ' + question }}]
+                        }}],
+                        generationConfig: {{
+                            temperature: 0.7,
+                            maxOutputTokens: 1024,
+                        }}
+                    }})
+                }});
+
+                const data = await response.json();
+
+                // 로딩 메시지 제거
+                const msgs = document.getElementById('chat-messages');
+                msgs.removeChild(msgs.lastChild);
+
+                if (data.candidates && data.candidates[0]) {{
+                    const answer = data.candidates[0].content.parts[0].text;
+                    addMessage('ai', answer);
+                }} else if (data.error) {{
+                    addMessage('system', '❌ 오류: ' + data.error.message);
+                    if (data.error.message.includes('API key')) {{
+                        document.getElementById('chat-setup').style.display = 'block';
+                    }}
+                }} else {{
+                    addMessage('system', '❌ 응답을 받지 못했습니다.');
+                }}
+            }} catch (err) {{
+                const msgs = document.getElementById('chat-messages');
+                msgs.removeChild(msgs.lastChild);
+                addMessage('system', '❌ 네트워크 오류: ' + err.message);
+            }}
+        }}
+
+        // 초기화: API key 확인
+        if (!getApiKey()) {{
+            document.getElementById('chat-setup').style.display = 'block';
+        }}
+        </script>
 
         <div class="footer">
             데이터 출처: <a href="https://yieldmaxetfs.com/" target="_blank">yieldmaxetfs.com</a> |
