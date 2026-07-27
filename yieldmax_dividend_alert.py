@@ -549,6 +549,207 @@ def _generate_recovery_estimate(grand_invested, grand_dividend):
     </div>"""
 
 
+def _generate_risk_section(all_distributions):
+    """리스크 분석 및 행동 제안 섹션을 생성합니다."""
+
+    # ── 배당금 추세 분석 ──
+    # ETF별 최근 4주 vs 그 이전 4주 평균 비교
+    dividend_trends = {}
+    for ticker in ["CONY", "MSTY", "YBIT"]:
+        ticker_dists = sorted(
+            [d for d in all_distributions if d["ticker"] == ticker],
+            key=lambda x: x["payable_date"],
+            reverse=True
+        )
+        if len(ticker_dists) >= 8:
+            recent_4 = sum(d["amount"] for d in ticker_dists[:4]) / 4
+            prev_4 = sum(d["amount"] for d in ticker_dists[4:8]) / 4
+            change_pct = ((recent_4 - prev_4) / prev_4 * 100) if prev_4 > 0 else 0
+            dividend_trends[ticker] = {
+                "recent_avg": recent_4,
+                "prev_avg": prev_4,
+                "change_pct": change_pct,
+            }
+        elif ticker_dists:
+            dividend_trends[ticker] = {
+                "recent_avg": ticker_dists[0]["amount"],
+                "prev_avg": ticker_dists[0]["amount"],
+                "change_pct": 0,
+            }
+
+    # ── 리스크 레벨 판단 ──
+    alerts = []
+    risk_level = "LOW"  # LOW, MEDIUM, HIGH, CRITICAL
+
+    for ticker, trend in dividend_trends.items():
+        if trend["recent_avg"] < 0.10:
+            alerts.append({"type": "CRITICAL", "msg": f"{ticker} 주당배당 ${trend['recent_avg']:.4f} — 매도 검토 필요"})
+            risk_level = "CRITICAL"
+        elif trend["change_pct"] < -30:
+            alerts.append({"type": "HIGH", "msg": f"{ticker} 배당금 {trend['change_pct']:.0f}% 급감 (${trend['prev_avg']:.4f} → ${trend['recent_avg']:.4f})"})
+            if risk_level not in ["CRITICAL"]:
+                risk_level = "HIGH"
+        elif trend["change_pct"] < -15:
+            alerts.append({"type": "MEDIUM", "msg": f"{ticker} 배당금 {trend['change_pct']:.0f}% 감소 추세"})
+            if risk_level == "LOW":
+                risk_level = "MEDIUM"
+
+    # 주가 하락률 체크
+    for ticker in ["CONY", "MSTY", "YBIT"]:
+        current = CURRENT_PRICES.get(ticker, 0)
+        for account, pdata in PORTFOLIO.items():
+            if ticker in pdata["ETF"]:
+                avg_price = pdata["ETF"][ticker]["매수평단"]
+                drop_pct = ((current - avg_price) / avg_price * 100) if avg_price > 0 else 0
+                if drop_pct < -85:
+                    alerts.append({"type": "CRITICAL", "msg": f"{ticker} 주가 매수가 대비 {drop_pct:.0f}% — 잔존가치 소멸 위험"})
+                    risk_level = "CRITICAL"
+                elif drop_pct < -75:
+                    if not any(ticker in a["msg"] and "주가" in a["msg"] for a in alerts):
+                        alerts.append({"type": "HIGH", "msg": f"{ticker} 주가 매수가 대비 {drop_pct:.0f}% 하락"})
+                        if risk_level not in ["CRITICAL"]:
+                            risk_level = "HIGH"
+                break  # 한 계좌만 체크하면 됨
+
+    # ── 리스크 레벨별 색상/아이콘 ──
+    level_config = {
+        "LOW": {"color": "#4caf50", "icon": "✅", "label": "안정"},
+        "MEDIUM": {"color": "#ffd54f", "icon": "⚠️", "label": "주의"},
+        "HIGH": {"color": "#ff9800", "icon": "🔶", "label": "경고"},
+        "CRITICAL": {"color": "#ef5350", "icon": "🚨", "label": "위험"},
+    }
+    config = level_config[risk_level]
+
+    # ── 경고 HTML ──
+    alerts_html = ""
+    for alert in alerts:
+        a_color = level_config[alert["type"]]["color"]
+        a_icon = level_config[alert["type"]]["icon"]
+        alerts_html += f'<li style="margin-bottom:0.5rem;color:{a_color}">{a_icon} {alert["msg"]}</li>'
+
+    if not alerts_html:
+        alerts_html = '<li style="color:#4caf50">✅ 현재 특이 사항 없음</li>'
+
+    # ── 배당 추세 테이블 ──
+    trend_rows = ""
+    for ticker in ["CONY", "MSTY", "YBIT"]:
+        if ticker in dividend_trends:
+            t = dividend_trends[ticker]
+            change_color = "#4caf50" if t["change_pct"] >= 0 else "#ef5350"
+            arrow = "▲" if t["change_pct"] >= 0 else "▼"
+            trend_rows += f"""
+                <tr>
+                    <td><span class="badge badge-{ticker.lower()}">{ticker}</span></td>
+                    <td>${t['prev_avg']:.4f}</td>
+                    <td>${t['recent_avg']:.4f}</td>
+                    <td style="color:{change_color};font-weight:600">{arrow} {t['change_pct']:+.1f}%</td>
+                </tr>"""
+
+    # ── 행동 기준 ──
+    # 회수율 계산
+    total_invested = sum(
+        sum(info["매수금액"] for info in pdata["ETF"].values())
+        for pdata in PORTFOLIO.values()
+    )
+    total_dividend = sum(
+        sum(info.get("누적배당금_합계", info["누적배당금"]) for info in pdata["ETF"].values())
+        for pdata in PORTFOLIO.values()
+    )
+    total_eval = sum(
+        CURRENT_PRICES.get(ticker, 0) * info["수량"]
+        for pdata in PORTFOLIO.values()
+        for ticker, info in pdata["ETF"].items()
+    )
+    recovery_pct = (total_dividend / total_invested * 100) if total_invested > 0 else 0
+    total_if_sell_now = total_eval + total_dividend
+    loss_if_sell_now = total_if_sell_now - total_invested
+    loss_pct = (loss_if_sell_now / total_invested * 100)
+
+    return f"""
+    <div class="card" style="margin-top:2rem;border:2px solid {config['color']}40">
+        <div class="card-header">
+            <h3>🛡️ 리스크 분석 & 행동 제안</h3>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+                <span style="font-size:1.5rem">{config['icon']}</span>
+                <span style="color:{config['color']};font-size:1.2rem;font-weight:700">리스크: {config['label']}</span>
+            </div>
+        </div>
+
+        <!-- 경고 사항 -->
+        <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:1rem;margin-bottom:1.5rem">
+            <h4 style="color:#fff;margin-bottom:0.5rem;font-size:0.9rem">⚡ 주요 경고</h4>
+            <ul style="list-style:none;padding:0;margin:0">{alerts_html}</ul>
+        </div>
+
+        <!-- 배당 추세 -->
+        <div style="margin-bottom:1.5rem">
+            <h4 style="color:#fff;margin-bottom:0.5rem;font-size:0.9rem">📉 배당금 추세 (최근 4주 vs 이전 4주)</h4>
+            <table>
+                <thead><tr><th>ETF</th><th>이전 평균</th><th>최근 평균</th><th>변화</th></tr></thead>
+                <tbody>{trend_rows}</tbody>
+            </table>
+        </div>
+
+        <!-- 현재 상태 요약 -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:1rem;margin-bottom:1.5rem">
+            <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:1rem;text-align:center">
+                <div style="color:#888;font-size:0.75rem">지금 전량 매도 시</div>
+                <div style="color:{'#4caf50' if loss_if_sell_now >= 0 else '#ef5350'};font-size:1.2rem;font-weight:700">
+                    ${loss_if_sell_now:+,.0f}
+                </div>
+                <div style="color:#555;font-size:0.7rem">({loss_pct:+.1f}%)</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:1rem;text-align:center">
+                <div style="color:#888;font-size:0.75rem">회수율</div>
+                <div style="color:#64b5f6;font-size:1.2rem;font-weight:700">{recovery_pct:.0f}%</div>
+                <div style="color:#555;font-size:0.7rem">${total_dividend:,.0f} / ${total_invested:,.0f}</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:1rem;text-align:center">
+                <div style="color:#888;font-size:0.75rem">잔존 평가금</div>
+                <div style="color:#64b5f6;font-size:1.2rem;font-weight:700">${total_eval:,.0f}</div>
+                <div style="color:#555;font-size:0.7rem">₩{total_eval * EXCHANGE_RATE:,.0f}</div>
+            </div>
+        </div>
+
+        <!-- 행동 기준 -->
+        <div style="background:rgba(255,213,79,0.05);border:1px solid rgba(255,213,79,0.2);border-radius:8px;padding:1rem">
+            <h4 style="color:#ffd54f;margin-bottom:0.8rem;font-size:0.9rem">📋 행동 기준</h4>
+            <table style="font-size:0.85rem">
+                <thead><tr><th>지표</th><th>위험 신호</th><th>행동</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>주당배당금</td>
+                        <td style="color:#ef5350">MSTY &lt; $0.10</td>
+                        <td>매도 검토</td>
+                    </tr>
+                    <tr>
+                        <td>BTC 가격</td>
+                        <td style="color:#ef5350">&lt; $55,000</td>
+                        <td>긴급 리밸런싱</td>
+                    </tr>
+                    <tr>
+                        <td>회수율</td>
+                        <td style="color:#4caf50">&gt; 70%</td>
+                        <td>부분 매도 (실현 이익 확보)</td>
+                    </tr>
+                    <tr>
+                        <td>ETF 주가</td>
+                        <td style="color:#ef5350">추가 50% 하락</td>
+                        <td>전량 매도 (잔존가치 확보)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 전략 요약 -->
+        <div style="margin-top:1rem;padding:0.8rem;background:rgba(255,255,255,0.02);border-radius:8px;font-size:0.8rem;color:#aaa">
+            <strong style="color:#fff">전략 요약:</strong>
+            추가 매수 금지 · 배당금 현금 보유 (재투자 X) · 회수율 70% 도달 시 부분 익절 ·
+            배당 급감 또는 BTC 급락 시 손절 · 이 ETF는 원금 회수용이지 장기 투자용이 아님
+        </div>
+    </div>"""
+
+
 def _generate_news_section():
     """YieldMax 커버드콜 관련 뉴스 + 비트코인/코인 뉴스를 가져옵니다."""
     NEWS_FILE = os.path.join(LOG_DIR, "weekly_news.json")
@@ -858,6 +1059,9 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
     # ── 뉴스 섹션 생성 ──
     news_section = _generate_news_section()
 
+    # ── 리스크 분석 섹션 생성 ──
+    risk_section = _generate_risk_section(all_fetched)
+
     # 최근 배당 히스토리 (날짜순 정렬 후 최근 12건)
     sorted_history = sorted(
         all_fetched,
@@ -1033,6 +1237,9 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
         <!-- 포트폴리오 현황 -->
         {portfolio_section}
 
+        <!-- 리스크 분석 -->
+        {risk_section}
+
         <!-- 이번 주 배당금 -->
         <h2 style="color:#fff;margin-bottom:1rem;font-size:1.3rem">이번 주 배당금</h2>
 
@@ -1095,12 +1302,16 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
     return HTML_FILE
 
 
-def send_macos_notification(title, message, subtitle=""):
-    """macOS 알림을 보냅니다."""
+def send_macos_notification(title, message, subtitle="", url=""):
+    """macOS 알림을 보내고, URL이 있으면 클릭 시 브라우저에서 열기."""
     script = f'''
     display notification "{message}" with title "{title}" subtitle "{subtitle}"
     '''
     subprocess.run(["osascript", "-e", script], capture_output=True)
+
+    # URL이 있으면 알림과 함께 브라우저도 열기
+    if url:
+        subprocess.run(["open", url], capture_output=True)
 
 
 def save_log(all_distributions, account_dividends):
@@ -1176,10 +1387,11 @@ def main():
     print()
     update_cumulative_dividends(all_distributions_full)
 
-    # HTML 대시보드 생성 및 브라우저 열기
+    # HTML 대시보드 생성
     html_path = generate_html_dashboard(all_recent, all_fetched, account_dividends)
     print(f"\n📊 HTML 대시보드 생성: {html_path}")
-    webbrowser.open(f"file://{html_path}")
+
+    GITHUB_DASHBOARD_URL = "https://heebaik01.github.io/yieldmax-dashboard/"
 
     # 로그 저장
     save_log(all_recent, account_dividends)
@@ -1203,7 +1415,8 @@ def main():
         notification_msg,
         f"아빠: ${account_dividends['아빠']['total_post_tax']:.2f} | "
         f"엄마: ${account_dividends['엄마']['total_post_tax']:.2f} | "
-        f"시윤: ${account_dividends['시윤']['total_post_tax']:.2f}"
+        f"시윤: ${account_dividends['시윤']['total_post_tax']:.2f}",
+        url=GITHUB_DASHBOARD_URL
     )
 
     print("✅ 완료! 브라우저에서 대시보드를 확인하세요.")
