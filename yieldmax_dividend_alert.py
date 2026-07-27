@@ -843,6 +843,9 @@ def _generate_news_section():
     yieldmax_html = _render_news_list(yieldmax_news)
     crypto_html = _render_news_list(crypto_news)
 
+    # ── 뉴스 기반 인사이트 생성 ──
+    insights = _generate_news_insights(yieldmax_news, crypto_news)
+
     return f"""
     <div class="card" style="margin-top:2rem">
         <div class="card-header">
@@ -859,10 +862,140 @@ def _generate_news_section():
                 <ul style="list-style:none;padding:0">{crypto_html}</ul>
             </div>
         </div>
+
+        <!-- 금주 인사이트 -->
+        {insights}
+
         <p style="color:#555;font-size:0.7rem;margin-top:1rem;border-top:1px solid rgba(255,255,255,0.05);padding-top:0.5rem">
             * 뉴스는 매주 금요일 자동 업데이트됩니다. 링크를 클릭하면 원문을 볼 수 있습니다.
         </p>
     </div>"""
+
+
+def _generate_news_insights(yieldmax_news, crypto_news):
+    """뉴스 제목을 키워드 분석하여 투자 인사이트를 자동 생성합니다."""
+
+    insights = []
+    sentiment_score = 0  # -5 ~ +5 범위
+
+    # YieldMax 뉴스 키워드 분석
+    yieldmax_keywords = {
+        "negative": {
+            "loss": "커버드콜 ETF 손실 리스크가 보도되고 있습니다",
+            "trap": "고배당이 투자 함정이 될 수 있다는 분석이 있습니다",
+            "erosion": "NAV(순자산가치) 침식 위험이 지적되고 있습니다",
+            "collapse": "주가 붕괴 가능성에 대한 경고가 있습니다",
+            "uncapped": "하방 리스크가 무제한인 구조적 문제가 부각되고 있습니다",
+            "capital": "배당금 대부분이 원금 반환(ROC)이라는 점이 강조되고 있습니다",
+            "reverse split": "역분할 이력이 있어 장기 가치 보존이 어렵습니다",
+            "concern": "장기 보유자에 대한 우려가 제기되고 있습니다",
+            "risk": "추가적인 리스크 요인이 보도되고 있습니다",
+        },
+        "positive": {
+            "income": "주간 인컴 지급은 계속되고 있습니다",
+            "recovery": "회복 가능성에 대한 논의가 있습니다",
+            "opportunity": "변동성을 활용한 기회 분석이 있습니다",
+        }
+    }
+
+    crypto_keywords = {
+        "negative": {
+            "slide": "크립토 시장이 하락 중입니다",
+            "fall": "비트코인 가격이 하락하고 있습니다",
+            "crash": "급락 리스크가 있습니다",
+            "inflation": "인플레이션 우려로 위험자산이 압박받고 있습니다",
+            "collapse": "시장 붕괴 신호에 주의가 필요합니다",
+            "bear": "약세장 신호가 감지됩니다",
+            "outflow": "ETF 자금 유출이 발생하고 있습니다",
+        },
+        "positive": {
+            "bottom": "바닥 신호가 감지되고 있습니다 — 반등 가능성 모니터링",
+            "rally": "반등이 시작되었습니다",
+            "above": "비트코인이 주요 저항선을 돌파했습니다",
+            "recover": "시장 회복 조짐이 있습니다",
+            "momentum": "상승 모멘텀이 형성되고 있습니다",
+            "bullish": "강세 신호가 나타나고 있습니다",
+        }
+    }
+
+    # YieldMax 뉴스 분석
+    for news in yieldmax_news:
+        title = news.get("title", "").lower()
+        # "capital gain"은 제외 (false positive 방지)
+        if "capital gain" in title:
+            continue
+        matched_neg = False
+        for keyword, insight in yieldmax_keywords["negative"].items():
+            if keyword in title:
+                insights.append({"type": "warning", "text": insight})
+                sentiment_score -= 1
+                matched_neg = True
+                break
+        if not matched_neg:
+            for keyword, insight in yieldmax_keywords["positive"].items():
+                if keyword in title:
+                    insights.append({"type": "positive", "text": insight})
+                    sentiment_score += 1
+                    break
+
+    # 크립토 뉴스 분석
+    for news in crypto_news:
+        title = news.get("title", "").lower()
+        matched_neg = False
+        for keyword, insight in crypto_keywords["negative"].items():
+            if keyword in title:
+                insights.append({"type": "warning", "text": insight})
+                sentiment_score -= 1
+                matched_neg = True
+                break
+        if not matched_neg:
+            for keyword, insight in crypto_keywords["positive"].items():
+                if keyword in title:
+                    insights.append({"type": "positive", "text": insight})
+                    sentiment_score += 1
+                    break
+
+    # 중복 제거
+    seen = set()
+    unique_insights = []
+    for ins in insights:
+        if ins["text"] not in seen:
+            seen.add(ins["text"])
+            unique_insights.append(ins)
+
+    # 종합 판단
+    if sentiment_score <= -3:
+        overall = {"icon": "🔴", "text": "부정적 신호 우세 — 보수적 대응 권장 (추가매수 금지, 부분 매도 검토)", "color": "#ef5350"}
+    elif sentiment_score <= -1:
+        overall = {"icon": "🟡", "text": "혼합 신호 — 현상 유지하되 경계 강화", "color": "#ffd54f"}
+    elif sentiment_score == 0:
+        overall = {"icon": "⚪", "text": "중립 — 기존 전략 유지", "color": "#888"}
+    elif sentiment_score <= 2:
+        overall = {"icon": "🟡", "text": "다소 긍정적 — 회복 모니터링, 아직 행동 불필요", "color": "#ffd54f"}
+    else:
+        overall = {"icon": "🟢", "text": "긍정적 신호 — 반등 시 부분 매도로 이익 실현 고려", "color": "#4caf50"}
+
+    # HTML 렌더링
+    insights_html = ""
+    for ins in unique_insights[:6]:  # 최대 6개
+        if ins["type"] == "warning":
+            insights_html += f'<li style="margin-bottom:0.4rem"><span style="color:#ef5350">▸</span> <span style="color:#ddd">{ins["text"]}</span></li>'
+        else:
+            insights_html += f'<li style="margin-bottom:0.4rem"><span style="color:#4caf50">▸</span> <span style="color:#ddd">{ins["text"]}</span></li>'
+
+    return f"""
+        <div style="margin-top:1.5rem;background:rgba(255,255,255,0.03);border-radius:8px;padding:1.2rem;border:1px solid rgba(255,255,255,0.08)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+                <h4 style="color:#fff;font-size:0.95rem">💡 금주 인사이트</h4>
+                <span style="color:{overall['color']};font-size:0.85rem;font-weight:600">{overall['icon']} {overall['text']}</span>
+            </div>
+            <ul style="list-style:none;padding:0;margin:0;font-size:0.85rem">
+                {insights_html}
+            </ul>
+            <div style="margin-top:0.8rem;padding-top:0.6rem;border-top:1px solid rgba(255,255,255,0.05)">
+                <span style="color:#555;font-size:0.7rem">감성지수: {sentiment_score:+d} (뉴스 {len(yieldmax_news) + len(crypto_news)}건 분석)</span>
+            </div>
+        </div>"""
 
 
 def _generate_chart_section(all_fetched):
