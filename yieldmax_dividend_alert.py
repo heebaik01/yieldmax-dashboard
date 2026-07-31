@@ -1036,10 +1036,23 @@ def _generate_chart_section(all_fetched):
         except Exception as e:
             print(f"  ⚠️  {ticker} 차트 데이터 실패: {e}")
 
-    # 배당금 데이터
+    # 배당금 데이터 — 웹사이트에서 상장일 이후 전체 스크래핑
     dividend_data = {}
     for ticker in ["CONY", "MSTY", "YBIT"]:
+        # 먼저 all_fetched에서 가져오기
         ticker_dists = [d for d in all_fetched if d["ticker"] == ticker]
+
+        # 데이터가 충분하지 않으면 (6개월치 = ~26건 미만) 웹에서 직접 가져오기
+        if len(ticker_dists) < 26:
+            try:
+                url = f"https://yieldmaxetfs.com/our-etfs/{ticker.lower()}"
+                full_dists = fetch_distributions(ticker, url)
+                if full_dists:
+                    ticker_dists = full_dists
+                    print(f"  📊 {ticker} 차트용 배당 {len(full_dists)}건 로드 (웹)")
+            except Exception:
+                pass
+
         dividends = []
         for d in sorted(ticker_dists, key=lambda x: x["payable_date"]):
             try:
@@ -1048,6 +1061,8 @@ def _generate_chart_section(all_fetched):
             except ValueError:
                 continue
         dividend_data[ticker] = dividends
+        if not dividends:
+            print(f"  ⚠️  {ticker} 차트용 배당 데이터 없음 (로컬 {len(ticker_dists)}건 사용)")
 
     # ETF별 개별 차트 HTML 생성
     charts_html = ""
@@ -1286,7 +1301,7 @@ def _generate_comparison_section():
     <div class="card" style="margin-top:2rem">
         <div class="card-header">
             <h3>🔍 YieldMax ETF 비교</h3>
-            <small style="color:#888">주요 16개 ETF (07/22/2026 기준)</small>
+            <small style="color:#888">주요 16개 ETF ({datetime.now().strftime('%Y-%m-%d')} 기준)</small>
         </div>
         <div style="margin-bottom:0.8rem;font-size:0.75rem;color:#888">
             <span style="background:#ffd54f;color:#000;padding:1px 4px;border-radius:3px;font-size:0.6rem">보유</span> = 내가 보유 중 |
@@ -1668,7 +1683,7 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
             addMessage('system', '⏳ 분석 중...');
 
             try {{
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{apiKey}}`, {{
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${{apiKey}}`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
