@@ -1054,10 +1054,20 @@ def _generate_chart_section(all_fetched):
                 pass
 
         dividends = []
-        for d in sorted(ticker_dists, key=lambda x: x["payable_date"]):
+        # 월배당→주배당 전환일 기준 (2025년 10월부터 주배당 시작)
+        weekly_cutoff = datetime(2025, 10, 1)
+
+        sorted_dists = sorted(ticker_dists, key=lambda x: datetime.strptime(x["payable_date"], "%m/%d/%Y"))
+        for i, d in enumerate(sorted_dists):
             try:
                 dt = datetime.strptime(d["payable_date"], "%m/%d/%Y")
-                dividends.append({"date": dt.strftime("%Y-%m-%d"), "amount": d["amount"]})
+                amount = d["amount"]
+
+                if dt < weekly_cutoff:
+                    # 월배당 → 주배당 환산 (4.33주로 나눔)
+                    amount = amount / 4.33
+
+                dividends.append({"date": dt.strftime("%Y-%m-%d"), "amount": round(amount, 4)})
             except ValueError:
                 continue
         dividend_data[ticker] = dividends
@@ -1683,7 +1693,7 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
             addMessage('system', '⏳ 분석 중...');
 
             try {{
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${{apiKey}}`, {{
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{apiKey}}`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
