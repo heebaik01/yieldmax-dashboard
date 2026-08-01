@@ -228,19 +228,32 @@ def fetch_distributions(ticker, url):
     text = soup.get_text()
 
     distributions = []
-    pattern = r'\$(\d+\.\d+)(\d{2}/\d{2}/\d{4})(\d{2}/\d{2}/\d{4})(\d{2}/\d{2}/\d{4})(\d{2}/\d{2}/\d{4})(\d+\.?\d*%)'
+    # nan%도 매칭하도록 패턴 확장 (웹사이트에서 중복행이 있으며 한 쪽이 nan%일 수 있음)
+    pattern = r'\$(\d+\.\d+)(\d{2}/\d{2}/\d{4})(\d{2}/\d{2}/\d{4})(\d{2}/\d{2}/\d{4})(\d{2}/\d{2}/\d{4})([\d.]+%|nan%)'
     matches = re.findall(pattern, text)
 
+    seen_dates = {}  # payable_date → 이미 저장된 항목 (중복 제거용)
     for match in matches:
-        distributions.append({
+        payable_date = match[4]
+        roc = match[5]
+
+        # 동일 날짜가 이미 있으면: nan% 아닌 유효값을 우선
+        if payable_date in seen_dates:
+            if roc != "nan%" and seen_dates[payable_date]["roc"] == "nan%":
+                seen_dates[payable_date]["roc"] = roc  # 유효 ROC로 업데이트
+            continue
+
+        entry = {
             "ticker": ticker,
             "amount": float(match[0]),
             "declared_date": match[1],
             "ex_date": match[2],
             "record_date": match[3],
-            "payable_date": match[4],
-            "roc": match[5],
-        })
+            "payable_date": payable_date,
+            "roc": roc,
+        }
+        seen_dates[payable_date] = entry
+        distributions.append(entry)
 
     return distributions
 
@@ -1085,6 +1098,13 @@ def _generate_chart_section(all_fetched):
 
         # 주가 데이터
         price_data = chart_data.get(ticker, [])
+
+        # 배당 데이터의 시작일에 맞춰 주가 데이터도 자르기 (동일 기간 표시)
+        div_data = dividend_data.get(ticker, [])
+        if div_data and price_data:
+            div_start = div_data[0]["date"]
+            price_data = [p for p in price_data if p["date"] >= div_start]
+
         price_dataset = {
             "label": f"{ticker} 주가 ($)",
             "data": [{"x": p["date"], "y": p["price"]} for p in price_data],
@@ -1693,7 +1713,7 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
             addMessage('system', '⏳ 분석 중...');
 
             try {{
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${{apiKey}}`, {{
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${{apiKey}}`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
