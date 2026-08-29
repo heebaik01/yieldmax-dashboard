@@ -1,0 +1,219 @@
+{
+  "timestamp": "2026-08-29T03:18:47.057405",
+  "base_date": "04/10/2026",
+  "new_distributions_count": 39,
+  "additions": {
+    "아빠": {
+      "CONY": 712.0,
+      "MSTY": 1471.01,
+      "YBIT": 93.16
+    },
+    "엄마": {
+      "CONY": 275.36,
+      "MSTY": 249.39,
+      "YBIT": 62.88
+    },
+    "시윤": {
+      "CONY": 157.35,
+      "MSTY": 187.94,
+      "YBIT": 46.58
+    }
+  },
+  "distributions_detail": [
+    {
+      "ticker": "CONY",
+      "amount": 0.3833,
+      "payable_date": "04/17/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.3038,
+      "payable_date": "04/17/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.2778,
+      "payable_date": "04/17/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.4161,
+      "payable_date": "04/24/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.5211,
+      "payable_date": "04/24/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.2692,
+      "payable_date": "04/24/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.5307,
+      "payable_date": "05/01/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.4886,
+      "payable_date": "05/01/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.3319,
+      "payable_date": "05/01/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.4464,
+      "payable_date": "05/08/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.5553,
+      "payable_date": "05/08/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.3201,
+      "payable_date": "05/08/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.5631,
+      "payable_date": "05/15/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.5363,
+      "payable_date": "05/15/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.2356,
+      "payable_date": "05/15/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.3427,
+      "payable_date": "05/22/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.3136,
+      "payable_date": "05/22/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1833,
+      "payable_date": "05/22/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.3345,
+      "payable_date": "05/29/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.2979,
+      "payable_date": "05/29/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1913,
+      "payable_date": "05/29/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.2791,
+      "payable_date": "06/05/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.2459,
+      "payable_date": "06/05/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1648,
+      "payable_date": "06/05/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.2681,
+      "payable_date": "06/12/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.2117,
+      "payable_date": "06/12/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1497,
+      "payable_date": "06/12/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.2858,
+      "payable_date": "06/22/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.2286,
+      "payable_date": "06/22/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1513,
+      "payable_date": "06/22/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.2598,
+      "payable_date": "06/26/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.1883,
+      "payable_date": "06/26/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1443,
+      "payable_date": "06/26/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.2389,
+      "payable_date": "07/06/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.1549,
+      "payable_date": "07/06/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1488,
+      "payable_date": "07/06/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.2794,
+      "payable_date": "07/10/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.2061,
+      "payable_date": "07/10/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1718,
+      "payable_date": "07/10/2026"
+    }
+  ]
+}
