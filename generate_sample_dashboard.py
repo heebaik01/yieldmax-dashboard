@@ -74,16 +74,51 @@ all_distributions_full = [
     {"ticker": "YBIT", "amount": 0.1718, "declared_date": "07/08/2026", "ex_date": "07/09/2026", "record_date": "07/09/2026", "payable_date": "07/10/2026", "roc": "0.00%"},
 ]
 
+# ── 웹에서 최신 배당 데이터 가져오기 (성공 시 하드코딩 데이터 대체) ──
+print("📥 YieldMax 웹사이트에서 최신 배당 데이터 가져오는 중...")
+live_distributions = []
+for ticker in ["CONY", "MSTY", "YBIT"]:
+    try:
+        url = f"https://yieldmaxetfs.com/our-etfs/{ticker.lower()}"
+        dists = ym.fetch_distributions(ticker, url)
+        if dists:
+            live_distributions.extend(dists)
+            print(f"  ✅ {ticker}: {len(dists)}건")
+    except Exception as e:
+        print(f"  ⚠️  {ticker} 실패: {e}")
+
+if live_distributions:
+    all_distributions_full = live_distributions
+    print("  → 웹 실시간 데이터 사용")
+else:
+    print("  → 웹 접속 실패, 내장 데이터 사용 (구버전일 수 있음)")
+print()
+
 # 누적배당금 업데이트 (4/10 이후 배당 반영)
 print("💰 누적배당금 업데이트 중...")
 ym.update_cumulative_dividends(all_distributions_full)
 print()
 
-# 최근 배당 (이번 주)
-sample_recent = [d for d in all_distributions_full if d["payable_date"] == "07/10/2026"]
+# 최근 배당 (가장 최근 지급일 기준)
+from datetime import datetime as _dt
+def _pdate(d):
+    try:
+        return _dt.strptime(d["payable_date"], "%m/%d/%Y")
+    except ValueError:
+        return _dt.min
+
+latest_date = max(_pdate(d) for d in all_distributions_full)
+sample_recent = [d for d in all_distributions_full if _pdate(d) == latest_date]
 if not sample_recent:
-    # fallback: 가장 최근 3건
-    sample_recent = all_distributions_full[:3]
+    sample_recent = sorted(all_distributions_full, key=_pdate, reverse=True)[:3]
+
+# ETF별 최신 1건씩으로 보정 (같은 날짜에 모든 ETF가 지급 안했을 수 있음)
+recent_by_ticker = []
+for ticker in ["CONY", "MSTY", "YBIT"]:
+    t_dists = sorted([d for d in all_distributions_full if d["ticker"] == ticker], key=_pdate, reverse=True)
+    if t_dists:
+        recent_by_ticker.append(t_dists[0])
+sample_recent = recent_by_ticker
 
 account_dividends = ym.calculate_dividends(sample_recent)
 html_path = ym.generate_html_dashboard(sample_recent, all_distributions_full, account_dividends)
