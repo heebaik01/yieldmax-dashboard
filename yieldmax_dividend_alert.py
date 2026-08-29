@@ -1026,9 +1026,9 @@ def _generate_chart_section(all_fetched):
     }
     colors = {"CONY": "#ff9800", "MSTY": "#2196f3", "YBIT": "#9c27b0"}
     descriptions = {
-        "CONY": "Coinbase(COIN) 옵션 인컴 전략",
-        "MSTY": "Strategy Inc(MSTR) 옵션 인컴 전략",
-        "YBIT": "iShares Bitcoin Trust(IBIT) 옵션 인컴 전략",
+        "CONY": "YieldMax ETF · 기초자산: Coinbase(COIN)",
+        "MSTY": "YieldMax ETF · 기초자산: Strategy(MSTR)",
+        "YBIT": "YieldMax ETF · 기초자산: 비트코인 ETF(IBIT)",
     }
 
     chart_data = {}
