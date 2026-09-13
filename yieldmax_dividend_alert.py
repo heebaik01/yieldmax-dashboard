@@ -127,12 +127,13 @@ def fetch_prices_from_yahoo():
                 CURRENT_PRICES[ticker] = round(float(last_price), 2)
                 print(f"     {ticker}: ${CURRENT_PRICES[ticker]:.2f}")
 
-        # USD/KRW 환율 가져오기
-        fx = yf.download("KRW=X", start=start_date, end=end_date, progress=False)
+        # USD/KRW 환율 가져오기 — 조회 시점의 가장 최근 거래일 종가
+        fx = yf.download("KRW=X", period="5d", progress=False)
         if not fx.empty:
             last_fx = fx["Close"].dropna().iloc[-1]
             EXCHANGE_RATE = round(float(last_fx.iloc[0]) if hasattr(last_fx, 'iloc') else float(last_fx), 0)
-            print(f"     환율: ₩{EXCHANGE_RATE:,.0f}")
+            fx_date = fx["Close"].dropna().index[-1].strftime("%Y-%m-%d")
+            print(f"     환율: ₩{EXCHANGE_RATE:,.0f} ({fx_date} 기준)")
 
         print(f"  ✅ 주가 업데이트 완료!")
 
