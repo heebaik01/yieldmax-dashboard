@@ -312,7 +312,7 @@ def calculate_dividends(distributions):
     return results
 
 
-def _generate_portfolio_section():
+def _generate_portfolio_section(all_fetched=None):
     """포트폴리오 요약 HTML 섹션을 생성합니다 (누적배당금, 매수평단, 투자금, 평가금액)."""
     rows_by_account = ""
     grand_total_invested = 0
@@ -447,15 +447,31 @@ def _generate_portfolio_section():
     </div>"""
 
     # ── 회수 예상일 계산 ──
-    recovery_section = _generate_recovery_estimate(grand_total_invested, grand_total_dividend)
+    recovery_section = _generate_recovery_estimate(grand_total_invested, grand_total_dividend, all_fetched)
     portfolio_summary += recovery_section
 
     return portfolio_summary
 
 
-def _generate_recovery_estimate(grand_invested, grand_dividend):
-    """현재 배당 추세 기반 투자금 회수 예상일을 계산합니다."""
+def _generate_recovery_estimate(grand_invested, grand_dividend, all_distributions=None):
+    """최근 12주 평균 배당금 기반 투자금 회수 예상일을 계산합니다 (4주/12주 범위 표시)."""
     recovery_rows = ""
+
+    # ── ETF별 주당 평균 배당금: 12주(메인) + 4주(범위 산정용) ──
+    avg_12w = {}   # 메인 추정 (한 분기 평균, 노이즈 평활)
+    avg_4w = {}    # 최근 추세 (범위 표시용)
+    if all_distributions:
+        for ticker in ["CONY", "MSTY", "YBIT"]:
+            ticker_dists = sorted(
+                [d for d in all_distributions if d["ticker"] == ticker],
+                key=lambda x: datetime.strptime(x["payable_date"], "%m/%d/%Y"),
+                reverse=True,
+            )
+            if ticker_dists:
+                w12 = ticker_dists[:12]
+                avg_12w[ticker] = sum(d["amount"] for d in w12) / len(w12)
+                w4 = ticker_dists[:4]
+                avg_4w[ticker] = sum(d["amount"] for d in w4) / len(w4)
 
     for account, pdata in PORTFOLIO.items():
         account_rows = ""
@@ -464,15 +480,17 @@ def _generate_recovery_estimate(grand_invested, grand_dividend):
             cum_dividend = info.get("누적배당금_합계", info["누적배당금"])
             remaining = buy_amount - cum_dividend
 
-            # 최근 4주 평균 배당금으로 주간 수령액 추정
-            # PORTFOLIO에 저장된 추가 배당금 정보 활용
             qty = info["수량"]
-            added = info.get("누적배당금_추가", 0)
 
-            # 기준일(4/10)부터 오늘까지의 주 수로 주당 평균 계산
-            base_date = datetime.strptime(PORTFOLIO_BASE_DATE, "%m/%d/%Y")
-            weeks_elapsed = max(1, (datetime.now() - base_date).days / 7)
-            weekly_dividend = added / weeks_elapsed if added > 0 else 0
+            # 최근 12주 평균 배당금 기반 주간 수령액 (세후)
+            if ticker in avg_12w:
+                weekly_dividend = avg_12w[ticker] * qty * (1 - TAX_RATE)
+            else:
+                # 폴백: 기준일 이후 전체 기간 평균
+                added = info.get("누적배당금_추가", 0)
+                base_date = datetime.strptime(PORTFOLIO_BASE_DATE, "%m/%d/%Y")
+                weeks_elapsed = max(1, (datetime.now() - base_date).days / 7)
+                weekly_dividend = added / weeks_elapsed if added > 0 else 0
 
             if weekly_dividend > 0 and remaining > 0:
                 weeks_to_recover = remaining / weekly_dividend
@@ -522,23 +540,47 @@ def _generate_recovery_estimate(grand_invested, grand_dividend):
             </tr>
             {account_rows}"""
 
-    # 전체 회수 예상
+    # 전체 회수 예상 (최근 4주 평균 기준)
     total_remaining = grand_invested - grand_dividend
     base_date = datetime.strptime(PORTFOLIO_BASE_DATE, "%m/%d/%Y")
     weeks_elapsed = max(1, (datetime.now() - base_date).days / 7)
 
-    # 전체 주당 배당 합계
-    total_weekly = 0
-    for account, pdata in PORTFOLIO.items():
-        for ticker, info in pdata["ETF"].items():
-            added = info.get("누적배당금_추가", 0)
-            total_weekly += added / weeks_elapsed if added > 0 else 0
+    # 전체 주간 배당 합계 — 12주(메인)와 4주(범위) 각각 계산
+    def _total_weekly_for(avg_map):
+        total = 0
+        for account, pdata in PORTFOLIO.items():
+            for ticker, info in pdata["ETF"].items():
+                qty = info["수량"]
+                if ticker in avg_map:
+                    total += avg_map[ticker] * qty * (1 - TAX_RATE)
+                else:
+                    added = info.get("누적배당금_추가", 0)
+                    total += added / weeks_elapsed if added > 0 else 0
+        return total
+
+    total_weekly = _total_weekly_for(avg_12w)      # 메인 (12주)
+    total_weekly_4w = _total_weekly_for(avg_4w)    # 최근 추세 (4주)
 
     if total_weekly > 0 and total_remaining > 0:
         total_weeks = total_remaining / total_weekly
         total_months = total_weeks / 4.33
         total_recover_date = (datetime.now() + timedelta(weeks=total_weeks)).strftime("%Y년 %m월")
-        total_summary = f'<span style="color:#ffd54f;font-size:1.3rem;font-weight:700">{total_recover_date}</span> <span style="color:#888">({total_months:.0f}개월 후, 주당 ${total_weekly:.2f} 기준)</span>'
+
+        # 범위: 4주 기준과 12주 기준 중 빠른 쪽 ~ 늦은 쪽
+        range_str = ""
+        if total_weekly_4w > 0:
+            weeks_4w = total_remaining / total_weekly_4w
+            date_4w = datetime.now() + timedelta(weeks=weeks_4w)
+            date_12w = datetime.now() + timedelta(weeks=total_weeks)
+            early, late = sorted([date_4w, date_12w])
+            if early.strftime("%Y-%m") != late.strftime("%Y-%m"):
+                range_str = f'<br><span style="color:#888;font-size:0.75rem">범위: {early.strftime("%Y년 %m월")} ~ {late.strftime("%Y년 %m월")} (최근 4주 추세 반영)</span>'
+
+        total_summary = (
+            f'<span style="color:#ffd54f;font-size:1.3rem;font-weight:700">{total_recover_date}</span> '
+            f'<span style="color:#888">({total_months:.0f}개월 후, 주간 ${total_weekly:.2f} · 12주 평균 기준)</span>'
+            f'{range_str}'
+        )
     elif total_remaining <= 0:
         total_summary = '<span style="color:#4caf50;font-size:1.3rem;font-weight:700">이미 회수 완료!</span>'
     else:
@@ -557,7 +599,7 @@ def _generate_recovery_estimate(grand_invested, grand_dividend):
             <tbody>{recovery_rows}</tbody>
         </table>
         <p style="color:#555;font-size:0.7rem;margin-top:0.5rem">
-            * 최근 {weeks_elapsed:.0f}주간 평균 배당금 기준 추정. 배당금 변동에 따라 달라질 수 있음.
+            * 최근 12주(한 분기) 평균 배당금 기준 추정 (세후), 범위는 최근 4주 추세 반영. 매주 갱신됨.
         </p>
     </div>"""
 
@@ -1377,7 +1419,7 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
             latest_by_ticker[ticker] = ticker_dists[0]
 
     # ── 포트폴리오 요약 섹션 생성 ──
-    portfolio_section = _generate_portfolio_section()
+    portfolio_section = _generate_portfolio_section(all_fetched)
 
     # ── 차트 섹션 생성 ──
     chart_section = _generate_chart_section(all_fetched)
