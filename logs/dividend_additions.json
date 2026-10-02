@@ -1,22 +1,22 @@
 {
-  "timestamp": "2026-09-25T14:32:18.398066",
+  "timestamp": "2026-10-02T15:38:57.021771",
   "base_date": "04/10/2026",
-  "new_distributions_count": 72,
+  "new_distributions_count": 75,
   "additions": {
     "아빠": {
-      "CONY": 1184.68,
-      "MSTY": 2367.37,
-      "YBIT": 170.84
+      "CONY": 1224.32,
+      "MSTY": 2475.0,
+      "YBIT": 176.39
     },
     "엄마": {
-      "CONY": 458.16,
-      "MSTY": 401.35,
-      "YBIT": 115.32
+      "CONY": 473.5,
+      "MSTY": 419.59,
+      "YBIT": 119.06
     },
     "시윤": {
-      "CONY": 261.81,
-      "MSTY": 302.47,
-      "YBIT": 85.42
+      "CONY": 270.57,
+      "MSTY": 316.22,
+      "YBIT": 88.19
     }
   },
   "distributions_detail": [
@@ -379,6 +379,21 @@
       "ticker": "YBIT",
       "amount": 0.1924,
       "payable_date": "09/25/2026"
+    },
+    {
+      "ticker": "CONY",
+      "amount": 0.2577,
+      "payable_date": "10/02/2026"
+    },
+    {
+      "ticker": "MSTY",
+      "amount": 0.3111,
+      "payable_date": "10/02/2026"
+    },
+    {
+      "ticker": "YBIT",
+      "amount": 0.1631,
+      "payable_date": "10/02/2026"
     }
   ]
 }
