@@ -605,7 +605,376 @@ def _generate_recovery_estimate(grand_invested, grand_dividend, all_distribution
     </div>"""
 
 
-def _generate_risk_section(all_distributions):
+# ══════════════════════════════════════════════
+# 매크로 유동성 모니터
+# ══════════════════════════════════════════════
+
+def _fetch_fred_series(series_id, weeks=52):
+    """FRED에서 시계열 CSV를 가져옵니다 (API key 불필요). [(date, value), ...] 반환."""
+    import csv, io
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+    try:
+        r = requests.get(url, timeout=20)
+        r.raise_for_status()
+    except requests.RequestException:
+        return []
+    out = []
+    for row in list(csv.reader(io.StringIO(r.text)))[1:]:
+        if len(row) < 2:
+            continue
+        try:
+            out.append((row[0], float(row[1])))
+        except ValueError:
+            continue
+    cutoff = (datetime.now() - timedelta(weeks=weeks)).strftime("%Y-%m-%d")
+    return [x for x in out if x[0] >= cutoff]
+
+
+def _fetch_yahoo_series(ticker, period="1y"):
+    """Yahoo에서 종가 시계열을 가져옵니다. [(date, value), ...] 반환."""
+    if not HAS_YFINANCE:
+        return []
+    try:
+        h = yf.download(ticker, period=period, progress=False)
+        if h.empty:
+            return []
+        close = h["Close"]
+        # 최신 yfinance는 단일 티커도 DataFrame(MultiIndex)로 반환 → Series로 변환
+        if hasattr(close, "columns"):
+            close = close.iloc[:, 0]
+        close = close.dropna()
+        return [(idx.strftime("%Y-%m-%d"), float(val)) for idx, val in close.items()]
+    except Exception:
+        return []
+
+
+def _value_weeks_ago(series, weeks):
+    """시계열에서 N주 전(또는 그 직전) 값을 반환."""
+    if not series:
+        return None
+    target = (datetime.now() - timedelta(weeks=weeks)).strftime("%Y-%m-%d")
+    candidates = [v for d, v in series if d <= target]
+    return candidates[-1] if candidates else series[0][1]
+
+
+def fetch_macro_data():
+    """매크로 유동성 지표를 모두 수집하고 국면 신호를 계산합니다."""
+    print("  🌊 매크로 유동성 지표 수집 중...")
+    macro = {"indicators": {}, "series": {}}
+
+    # ── FRED: 순유동성 = 연준자산(WALCL, $M) − 재무부잔고(WTREGEN, $M) − 역레포(RRPONTSYD, $B) ──
+    walcl = _fetch_fred_series("WALCL")
+    tga = _fetch_fred_series("WTREGEN")
+    rrp = _fetch_fred_series("RRPONTSYD")
+
+    net_liq = []
+    if walcl and tga and rrp:
+        tga_map = dict(tga)
+        rrp_map = dict(rrp)
+        rrp_dates = sorted(rrp_map)
+        tga_dates = sorted(tga_map)
+        for d, w in walcl:
+            # 같은 날 없으면 직전 값 사용
+            t = tga_map.get(d) or next((tga_map[x] for x in reversed(tga_dates) if x <= d), None)
+            r = rrp_map.get(d) or next((rrp_map[x] for x in reversed(rrp_dates) if x <= d), None)
+            if t is not None and r is not None:
+                net_liq.append((d, round(w / 1000 - t / 1000 - r, 1)))  # $B
+    macro["series"]["net_liquidity"] = net_liq
+
+    dgs2 = _fetch_fred_series("DGS2")
+    hy = _fetch_fred_series("BAMLH0A0HYM2")
+
+    # ── Yahoo ──
+    tnx = _fetch_yahoo_series("^TNX")
+    tlt = _fetch_yahoo_series("TLT")
+    dxy = _fetch_yahoo_series("DX-Y.NYB")
+    vix = _fetch_yahoo_series("^VIX")
+    btc = _fetch_yahoo_series("BTC-USD")
+    gold = _fetch_yahoo_series("GC=F")
+    spx = _fetch_yahoo_series("^GSPC")
+    macro["series"]["btc"] = btc
+    macro["series"]["gold"] = gold
+
+    # ── 지표 정리: (현재값, 4주전, 단위, 방향 해석) ──
+    # risk_on_if: "down" = 값이 내려갈 때 위험자산 우호 / "up" = 올라갈 때 우호
+    specs = [
+        ("net_liquidity", "순유동성 (연준−TGA−RRP)", net_liq, "$B", "up",
+         "BTC와 상관성 높음. 증가 = 유동성 공급"),
+        ("tnx", "미 10년물 금리", tnx, "%", "down",
+         "상승 = 할인율↑, 위험자산 부담"),
+        ("dgs2", "미 2년물 금리", dgs2, "%", "down",
+         "연준 정책 기대 반영. 10년물보다 높으면 역전"),
+        ("tlt", "장기채 가격 (TLT)", tlt, "$", "up",
+         "금리의 역방향. 상승 = 금리 하락 기대"),
+        ("dxy", "달러 인덱스 (DXY)", dxy, "", "down",
+         "달러 강세 = 위험자산·BTC 역풍"),
+        ("hy", "하이일드 스프레드", hy, "%p", "down",
+         "확대 = 신용 경색 조기 신호"),
+        ("vix", "VIX (공포지수)", vix, "", "down",
+         "20 이상 경계, 30 이상 패닉"),
+        # ── 참고 지표 (점수 미반영, 리스크오프 유형 판별용) ──
+        ("gold", "금 (GC=F)", gold, "$", None,
+         "BTC와 같이 빠지면 디레버리징, 금↑BTC↓면 일반 리스크오프"),
+        ("spx", "S&P 500", spx, "", None,
+         "미국 주식 전반. 전자산 동반 하락 여부 확인"),
+    ]
+
+    score = 0
+    scored = 0
+    for key, label, series, unit, good_dir, desc in specs:
+        if not series:
+            continue
+        cur = series[-1][1]
+        prev4 = _value_weeks_ago(series, 4)
+        prev12 = _value_weeks_ago(series, 12)
+        chg4 = cur - prev4 if prev4 is not None else 0
+        chg4_pct = (chg4 / prev4 * 100) if prev4 else 0
+        # 우호/비우호 판단 (4주 변화 기준). good_dir None = 참고 지표(점수 미반영)
+        if good_dir is None:
+            signal = None
+        elif abs(chg4_pct) < 0.5:  # 변화 미미 → 중립
+            signal = 0
+        elif (chg4 > 0) == (good_dir == "up"):
+            signal = 1
+        else:
+            signal = -1
+        if signal is not None:
+            score += signal
+            scored += 1
+        macro["indicators"][key] = {
+            "label": label, "unit": unit, "current": cur, "prev4": prev4, "prev12": prev12,
+            "chg4": chg4, "chg4_pct": chg4_pct, "signal": signal, "desc": desc,
+            "spark": [v for _, v in series[-26:]],  # 최근 26포인트 미니차트
+            "date": series[-1][0],
+        }
+
+    # ── 리스크오프 유형 판별: 금 · BTC · 주식의 4주 방향 조합 ──
+    def _chg4(series):
+        if not series:
+            return None
+        p = _value_weeks_ago(series, 4)
+        return ((series[-1][1] / p) - 1) * 100 if p else None
+
+    g, b, s = _chg4(gold), _chg4(btc), _chg4(spx)
+    macro["chg4"] = {"gold": g, "btc": b, "spx": s}
+    riskoff_type = "UNKNOWN"
+    if None not in (g, b, s):
+        th = 1.0  # 1% 미만 변화는 '보합'
+        if g < -th and b < -th and s < -th:
+            riskoff_type = "DELEVERAGING"   # 전자산 동반 하락 = 현금 확보형 디레버리징 (가장 위험)
+        elif g > th and b < -th:
+            riskoff_type = "FLIGHT"         # 금↑ BTC↓ = 일반 리스크오프 (안전자산 선호)
+        elif b > th and s > th:
+            riskoff_type = "RISK_ON"        # 위험자산 상승
+        elif g > th and b > th:
+            riskoff_type = "LIQUIDITY_RALLY"  # 금·BTC 동반 상승 = 유동성/달러약세 랠리
+        else:
+            riskoff_type = "MIXED"
+    macro["riskoff_type"] = riskoff_type
+
+    # 디레버리징이면 점수에 추가 페널티 (유동성 경색의 가장 명확한 증상)
+    if riskoff_type == "DELEVERAGING":
+        score -= 2
+
+    # ── 종합 국면 ──
+    if scored == 0:
+        regime = "UNKNOWN"
+    elif score >= 2:
+        regime = "EASING"      # 완화
+    elif score <= -2:
+        regime = "TIGHTENING"  # 긴축
+    else:
+        regime = "NEUTRAL"
+    macro["score"] = score
+    macro["scored"] = scored
+    macro["regime"] = regime
+
+    # ── 장단기 금리 역전 체크 ──
+    if tnx and dgs2:
+        macro["inverted"] = dgs2[-1][1] > tnx[-1][1]
+    else:
+        macro["inverted"] = False
+
+    regime_label = {"EASING": "완화", "TIGHTENING": "긴축", "NEUTRAL": "중립", "UNKNOWN": "데이터 부족"}[regime]
+    ro_label = {"DELEVERAGING": "디레버리징", "FLIGHT": "일반 리스크오프", "RISK_ON": "리스크온",
+                "LIQUIDITY_RALLY": "유동성 랠리", "MIXED": "혼조", "UNKNOWN": "불명"}[riskoff_type]
+    print(f"     지표 {scored}개 수집, 점수 {score:+d} → 국면: {regime_label} / 유형: {ro_label}")
+    return macro
+
+
+def _sparkline_svg(values, color, width=90, height=24):
+    """값 리스트로 미니 SVG 라인차트를 생성합니다."""
+    if not values or len(values) < 2:
+        return ""
+    mn, mx = min(values), max(values)
+    rng = (mx - mn) or 1
+    pts = []
+    for i, v in enumerate(values):
+        x = i / (len(values) - 1) * width
+        y = height - (v - mn) / rng * (height - 2) - 1
+        pts.append(f"{x:.1f},{y:.1f}")
+    return (f'<svg width="{width}" height="{height}" style="vertical-align:middle">'
+            f'<polyline points="{" ".join(pts)}" fill="none" stroke="{color}" stroke-width="1.5"/></svg>')
+
+
+def _generate_macro_section(macro):
+    """매크로 유동성 모니터 HTML 섹션을 생성합니다."""
+    if not macro or not macro.get("indicators"):
+        return '<div class="card" style="margin-top:2rem"><p style="color:#888">매크로 데이터를 가져올 수 없습니다.</p></div>'
+
+    import json as _json
+
+    regime = macro["regime"]
+    regime_cfg = {
+        "EASING": {"color": "#4caf50", "icon": "🟢", "label": "완화 (위험자산 우호)",
+                   "note": "유동성 확대 국면. BTC·고베타 자산에 순풍. 단, 배당 추세는 별개로 확인."},
+        "NEUTRAL": {"color": "#ffd54f", "icon": "🟡", "label": "중립",
+                    "note": "뚜렷한 방향 없음. 기존 전략 유지, 주간 변화 추적."},
+        "TIGHTENING": {"color": "#ef5350", "icon": "🔴", "label": "긴축 (위험자산 역풍)",
+                       "note": "유동성 축소 국면. BTC 하락 동반 시 CONY/MSTY 추가 손실 가능 → 리스크 레벨 상향 적용됨."},
+        "UNKNOWN": {"color": "#888", "icon": "⚪", "label": "데이터 부족", "note": ""},
+    }[regime]
+
+    # ── 리스크오프 유형 박스 ──
+    ro = macro.get("riskoff_type", "UNKNOWN")
+    c4 = macro.get("chg4", {})
+    def _f(v): return f"{v:+.1f}%" if v is not None else "n/a"
+    ro_cfg = {
+        "DELEVERAGING": ("🔻", "#ef5350", "디레버리징 (현금 확보형 매도)",
+            "금·주식·BTC가 동시에 하락 중. 안전자산 선호가 아니라 '팔 수 있는 건 다 팔아 달러 확보'하는 국면. "
+            "모든 자산 상관계수가 1로 수렴하고 BTC·고베타(CONY/MSTY)가 가장 먼저·크게 팔림. 2020년 3월형. 점수 −2 페널티 적용."),
+        "FLIGHT": ("🛡️", "#ff9800", "일반 리스크오프 (안전자산 선호)",
+            "금↑ BTC↓. 위험자산에서 금·국채로 이동 중. BTC에는 역풍이지만 디레버리징보다는 완충이 있는 국면."),
+        "RISK_ON": ("🚀", "#4caf50", "리스크온",
+            "BTC·주식 동반 상승. 위험 선호 회복. 배당 추세와 함께 부분 익절 타이밍 점검."),
+        "LIQUIDITY_RALLY": ("🌊", "#4caf50", "유동성 랠리 (달러 약세)",
+            "금·BTC 동반 상승. 유동성 확대 또는 달러 약세가 모든 실물·대체자산을 밀어올리는 국면. BTC에 가장 우호적."),
+        "MIXED": ("↔️", "#ffd54f", "혼조",
+            "뚜렷한 패턴 없음. 주간 변화 추적."),
+        "UNKNOWN": ("⚪", "#888", "데이터 부족", ""),
+    }[ro]
+    riskoff_html = f"""
+        <div style="background:{ro_cfg[1]}12;border:1px solid {ro_cfg[1]}55;border-radius:8px;padding:0.9rem 1rem;margin-bottom:1.2rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+                <div><span style="font-size:1.1rem">{ro_cfg[0]}</span>
+                    <strong style="color:{ro_cfg[1]};margin-left:0.3rem">리스크오프 유형: {ro_cfg[2]}</strong></div>
+                <div style="font-size:0.8rem;color:#aaa">4주 변화 — 금 <b style="color:#fff">{_f(c4.get('gold'))}</b> ·
+                    BTC <b style="color:#fff">{_f(c4.get('btc'))}</b> · S&amp;P500 <b style="color:#fff">{_f(c4.get('spx'))}</b></div>
+            </div>
+            <p style="color:#bbb;font-size:0.8rem;margin:0.5rem 0 0">{ro_cfg[3]}</p>
+        </div>"""
+
+    # ── 지표 테이블 ──
+    rows = ""
+    order = ["net_liquidity", "tnx", "dgs2", "tlt", "dxy", "hy", "vix", "gold", "spx"]
+    for key in order:
+        ind = macro["indicators"].get(key)
+        if not ind:
+            continue
+        sig = ind["signal"]
+        if sig is None:
+            sig_color, sig_txt = "#64b5f6", "참고"
+        else:
+            sig_color = {1: "#4caf50", 0: "#888", -1: "#ef5350"}[sig]
+            sig_txt = {1: "우호", 0: "중립", -1: "역풍"}[sig]
+        chg_color = "#4caf50" if ind["chg4"] >= 0 else "#ef5350"
+        arrow = "▲" if ind["chg4"] >= 0 else "▼"
+        unit = ind["unit"]
+        if key == "net_liquidity":
+            cur_s = f"${ind['current']:,.0f}B"
+            chg_s = f"{arrow} ${abs(ind['chg4']):,.0f}B ({ind['chg4_pct']:+.1f}%)"
+        elif unit in ("%", "%p"):
+            cur_s = f"{ind['current']:.2f}{unit}"
+            chg_s = f"{arrow} {abs(ind['chg4']):.2f}{unit}"
+        elif unit == "$":
+            cur_s = f"${ind['current']:.2f}"
+            chg_s = f"{arrow} {ind['chg4_pct']:+.1f}%"
+        else:
+            cur_s = f"{ind['current']:.2f}"
+            chg_s = f"{arrow} {ind['chg4_pct']:+.1f}%"
+        rows += f"""
+            <tr>
+                <td><strong>{ind['label']}</strong><br><span style="color:#666;font-size:0.7rem">{ind['desc']}</span></td>
+                <td style="font-weight:600">{cur_s}</td>
+                <td style="color:{chg_color}">{chg_s}</td>
+                <td>{_sparkline_svg(ind['spark'], sig_color if sig else '#888')}</td>
+                <td style="color:{sig_color};font-weight:600">{sig_txt}</td>
+            </tr>"""
+
+    inverted_html = ""
+    if macro.get("inverted"):
+        inverted_html = '<div style="color:#ff9800;font-size:0.8rem;margin-top:0.5rem">⚠️ 장단기 금리 역전 (2년물 &gt; 10년물) — 경기 둔화 신호</div>'
+
+    # ── BTC vs 순유동성 차트 ──
+    chart_html = ""
+    nl = macro["series"].get("net_liquidity", [])
+    btc = macro["series"].get("btc", [])
+    if nl and btc:
+        nl_ds = [{"x": d, "y": v} for d, v in nl]
+        btc_ds = [{"x": d, "y": round(v, 0)} for d, v in btc]
+        chart_html = f"""
+        <div style="margin-top:1.5rem">
+            <h4 style="color:#fff;font-size:0.9rem;margin-bottom:0.5rem">BTC 가격 vs 순유동성 (최근 1년)</h4>
+            <div style="position:relative;height:260px;width:100%"><canvas id="chart_macro"></canvas></div>
+        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            if (typeof Chart === 'undefined') return;
+            new Chart(document.getElementById('chart_macro').getContext('2d'), {{
+                type: 'line',
+                data: {{ datasets: [
+                    {{ label: 'BTC ($)', data: {_json.dumps(btc_ds)}, borderColor: '#f7931a', backgroundColor: 'transparent',
+                       borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y' }},
+                    {{ label: '순유동성 ($B)', data: {_json.dumps(nl_ds)}, borderColor: '#64b5f6', backgroundColor: '#64b5f622',
+                       borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true, yAxisID: 'y1' }}
+                ] }},
+                options: {{
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: {{ mode: 'index', intersect: false }},
+                    plugins: {{ legend: {{ labels: {{ color: '#ccc', font: {{ size: 10 }} }} }},
+                                tooltip: {{ backgroundColor: 'rgba(0,0,0,0.85)' }} }},
+                    scales: {{
+                        x: {{ type: 'time', time: {{ unit: 'month', displayFormats: {{ month: 'yy-MM' }} }},
+                              ticks: {{ color: '#666' }}, grid: {{ color: 'rgba(255,255,255,0.03)' }} }},
+                        y: {{ position: 'left', title: {{ display: true, text: 'BTC ($)', color: '#f7931a' }},
+                              ticks: {{ color: '#f7931a' }}, grid: {{ color: 'rgba(255,255,255,0.05)' }} }},
+                        y1: {{ position: 'right', title: {{ display: true, text: '순유동성 ($B)', color: '#64b5f6' }},
+                               ticks: {{ color: '#64b5f6' }}, grid: {{ drawOnChartArea: false }} }}
+                    }}
+                }}
+            }});
+        }});
+        </script>"""
+
+    return f"""
+    <div class="card" style="margin-top:2rem;border:1px solid {regime_cfg['color']}55">
+        <div class="card-header">
+            <h3>🌊 매크로 유동성 모니터</h3>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+                <span style="font-size:1.3rem">{regime_cfg['icon']}</span>
+                <span style="color:{regime_cfg['color']};font-size:1.1rem;font-weight:700">{regime_cfg['label']}</span>
+                <small style="color:#666;margin-left:0.3rem">(점수 {macro['score']:+d} / {macro['scored']}지표)</small>
+            </div>
+        </div>
+        <p style="color:#aaa;font-size:0.85rem;margin-bottom:1rem">{regime_cfg['note']}</p>
+        {riskoff_html}
+        <div style="overflow-x:auto">
+            <table style="font-size:0.85rem">
+                <thead><tr><th>지표</th><th>현재</th><th>4주 변화</th><th>추이 (26주)</th><th>신호</th></tr></thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
+        {inverted_html}
+        {chart_html}
+        <p style="color:#555;font-size:0.7rem;margin-top:1rem;border-top:1px solid rgba(255,255,255,0.05);padding-top:0.5rem">
+            * 신호 = 4주 변화 방향이 위험자산(BTC·CONY·MSTY)에 우호적인지 판정. 점수 +2 이상 완화, −2 이하 긴축.
+            금·S&amp;P500은 점수 미반영 참고 지표로, 리스크오프 유형 판별에 사용 (디레버리징 판정 시 점수 −2 페널티).
+            데이터: FRED(연준·재무부·역레포·2년물·HY스프레드), Yahoo(10년물·TLT·DXY·VIX·BTC). 유동성은 방향 지표이며 타이밍 지표가 아님.
+        </p>
+    </div>"""
+
+
+def _generate_risk_section(all_distributions, macro=None):
     """리스크 분석 및 행동 제안 섹션을 생성합니다."""
 
     # ── 배당금 추세 분석 ──
@@ -666,6 +1035,26 @@ def _generate_risk_section(all_distributions):
                         if risk_level not in ["CRITICAL"]:
                             risk_level = "HIGH"
                 break  # 한 계좌만 체크하면 됨
+
+    # ── 매크로 유동성 연동: 긴축 국면이면 리스크 한 단계 상향 ──
+    level_order = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    if macro and macro.get("regime") == "TIGHTENING":
+        idx = level_order.index(risk_level)
+        if idx < len(level_order) - 1:
+            risk_level = level_order[idx + 1]
+        alerts.append({"type": "HIGH", "msg": f"매크로 유동성 긴축 국면 (점수 {macro['score']:+d}) — 위험자산 역풍, 리스크 레벨 상향 적용"})
+    elif macro and macro.get("regime") == "EASING":
+        alerts.append({"type": "LOW", "msg": f"매크로 유동성 완화 국면 (점수 {macro['score']:+d}) — BTC·고베타 자산에 순풍"})
+    if macro and macro.get("inverted"):
+        alerts.append({"type": "MEDIUM", "msg": "장단기 금리 역전 (2년물 > 10년물) — 경기 둔화 선행 신호"})
+    if macro and macro.get("riskoff_type") == "DELEVERAGING":
+        c4 = macro.get("chg4", {})
+        alerts.append({"type": "CRITICAL",
+                       "msg": f"디레버리징 국면 — 금 {c4.get('gold', 0):+.1f}% · BTC {c4.get('btc', 0):+.1f}% · S&P {c4.get('spx', 0):+.1f}% 동시 하락. "
+                              f"전자산 매도 중, 고베타(CONY/MSTY) 최우선 매도 대상 → 신규 매수 절대 금지, 부분 매도 우선 검토"})
+        if risk_level != "CRITICAL":
+            idx = level_order.index(risk_level)
+            risk_level = level_order[min(idx + 1, len(level_order) - 1)]
 
     # ── 리스크 레벨별 색상/아이콘 ──
     level_config = {
@@ -792,6 +1181,16 @@ def _generate_risk_section(all_distributions):
                         <td>ETF 주가</td>
                         <td style="color:#ef5350">추가 50% 하락</td>
                         <td>전량 매도 (잔존가치 확보)</td>
+                    </tr>
+                    <tr>
+                        <td>유동성 국면</td>
+                        <td style="color:#ef5350">긴축 + BTC 4주 하락 동반</td>
+                        <td>부분 매도 검토 (고베타 노출 축소)</td>
+                    </tr>
+                    <tr>
+                        <td>리스크오프 유형</td>
+                        <td style="color:#ef5350">금·주식·BTC 동시 하락 (디레버리징)</td>
+                        <td>신규 매수 절대 금지 · 부분 매도 우선 · 금 반등 시작이 1차 안정 신호</td>
                     </tr>
                 </tbody>
             </table>
@@ -1429,7 +1828,33 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
     news_section = _generate_news_section()
 
     # ── 리스크 분석 섹션 생성 ──
-    risk_section = _generate_risk_section(all_fetched)
+    macro = fetch_macro_data()
+    risk_section = _generate_risk_section(all_fetched, macro)
+
+    # ── 매크로 유동성 섹션 ──
+    macro_section = _generate_macro_section(macro)
+
+    # AI 챗 컨텍스트용 매크로 요약 한 줄
+    if macro and macro.get("indicators"):
+        _rl = {"EASING": "완화", "TIGHTENING": "긴축", "NEUTRAL": "중립"}.get(macro["regime"], "불명")
+        _parts = []
+        for _k in ["net_liquidity", "tnx", "dgs2", "dxy", "hy", "vix"]:
+            _i = macro["indicators"].get(_k)
+            if _i:
+                _v = f"${_i['current']:,.0f}B" if _k == "net_liquidity" else f"{_i['current']:.2f}"
+                _parts.append(f"{_i['label']} {_v} (4주 {_i['chg4_pct']:+.1f}%)")
+        macro_ai_summary = f"- 국면: {_rl} (점수 {macro['score']:+d})\n- " + "\n- ".join(_parts)
+        if macro.get("inverted"):
+            macro_ai_summary += "\n- 장단기 금리 역전 상태"
+        _ro = {"DELEVERAGING": "디레버리징(금·주식·BTC 동시 하락, 현금 확보형 매도 — 가장 위험)",
+               "FLIGHT": "일반 리스크오프(금↑ BTC↓, 안전자산 선호)", "RISK_ON": "리스크온",
+               "LIQUIDITY_RALLY": "유동성 랠리(금·BTC 동반 상승)", "MIXED": "혼조"}.get(macro.get("riskoff_type"))
+        _c4 = macro.get("chg4", {})
+        if _ro:
+            macro_ai_summary += (f"\n- 리스크오프 유형: {_ro}. 4주 변화 금 {_c4.get('gold', 0):+.1f}%, "
+                                 f"BTC {_c4.get('btc', 0):+.1f}%, S&P500 {_c4.get('spx', 0):+.1f}%")
+    else:
+        macro_ai_summary = "- 데이터 없음"
 
     # ── YieldMax 다른 ETF 비교 섹션 ──
     comparison_section = _generate_comparison_section()
@@ -1612,6 +2037,9 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
         <!-- 리스크 분석 -->
         {risk_section}
 
+        <!-- 매크로 유동성 모니터 -->
+        {macro_section}
+
         <!-- 이번 주 배당금 -->
         <h2 style="color:#fff;margin-bottom:1rem;font-size:1.3rem">이번 주 배당금</h2>
 
@@ -1667,7 +2095,7 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
                 <small style="color:#888">뉴스와 포트폴리오 기반 문답</small>
             </div>
             <div id="chat-setup" style="display:none;padding:1rem;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:1rem">
-                <p style="color:#aaa;font-size:0.85rem;margin-bottom:0.5rem">Gemini API Key를 입력하세요 (처음 한번만, 브라우저에 저장됨):</p>
+                <p style="color:#aaa;font-size:0.85rem;margin-bottom:0.5rem">기본 키가 동작하지 않을 때만 새 Gemini API Key를 입력하세요 (브라우저에 저장됨):</p>
                 <input type="password" id="api-key-input" style="width:100%;padding:0.5rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:0.85rem" placeholder="AIza...">
                 <button onclick="saveApiKey()" style="margin-top:0.5rem;padding:0.4rem 1rem;border-radius:6px;border:none;background:#4caf50;color:#fff;cursor:pointer;font-size:0.85rem">저장</button>
             </div>
@@ -1694,6 +2122,9 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
 - 보유: CONY(181주,아빠/70주,엄마/40주,시윤), MSTY(407주,아빠/69주,엄마/52주,시윤), YBIT(40주,아빠/27주,엄마/20주,시윤)
 - CONY 매수평단 $96.45 → 현재 ~$19, MSTY 매수평단 $113.78 → 현재 ~$12, YBIT 매수평단 $66.70 → 현재 ~$19
 
+매크로 유동성 (대시보드 자동 수집, 최신):
+{macro_ai_summary}
+
 최근 뉴스 요약:
 - MSTY: 주주들이 무제한 하방 리스크에 노출, 66%배당률은 미끼라는 분석
 - CONY: 화려한 수익률 뒤에 장기보유자에게 우려되는 트랙레코드
@@ -1710,8 +2141,11 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
 
 간결하고 실용적으로 답변하세요. 구체적 숫자를 활용하세요.`;
 
+        // 기본 API Key (브라우저에 저장된 키가 있으면 그것을 우선 사용)
+        const DEFAULT_API_KEY = 'AQ.Ab8RN6Ii48FiW5FQY3B7-bb1S1Q_gc3xsFBt-NkbKZJP-VhT5Q';
+
         function getApiKey() {{
-            return localStorage.getItem('gemini_api_key') || '';
+            return localStorage.getItem('gemini_api_key') || DEFAULT_API_KEY;
         }}
 
         function saveApiKey() {{
@@ -1782,7 +2216,13 @@ def generate_html_dashboard(all_distributions, all_fetched, account_dividends):
                 }} else if (data.error) {{
                     addMessage('system', '❌ 오류: ' + data.error.message);
                     if (data.error.message.includes('API key')) {{
-                        document.getElementById('chat-setup').style.display = 'block';
+                        // 브라우저에 저장된 키가 잘못된 경우 제거 → 다음엔 기본 키 사용
+                        if (localStorage.getItem('gemini_api_key')) {{
+                            localStorage.removeItem('gemini_api_key');
+                            addMessage('system', '저장된 키를 초기화했습니다. 다시 질문해보세요.');
+                        }} else {{
+                            document.getElementById('chat-setup').style.display = 'block';
+                        }}
                     }}
                 }} else {{
                     addMessage('system', '❌ 응답을 받지 못했습니다.');
